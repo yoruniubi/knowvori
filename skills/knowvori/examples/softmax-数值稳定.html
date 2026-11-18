@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>softmax 为什么必须减最大值 · knowvori</title>
+<style>
+  :root{
+    --paper:#f7f4ec; --ink:#1f1d19; --ink-soft:#5a564e; --line:#d9d2c2;
+    --accent:#b4472a; --accent-soft:#fbeee8; --ok:#3f7d4a; --warn:#8a6d1f;
+    --code-bg:#efeade; --radius:3px;
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:"Songti SC","SimSun",Georgia,serif;
+    font-size:17px;line-height:1.85;padding:0 16px 80px;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:760px;margin:0 auto}
+  header.hero{padding:48px 0 28px;border-bottom:2px solid var(--ink)}
+  .eyebrow{font-size:13px;letter-spacing:.14em;color:var(--accent);font-family:system-ui,sans-serif;margin-bottom:10px}
+  h1{font-size:clamp(24px,5vw,34px);line-height:1.3;margin:0 0 14px;font-weight:700}
+  .promise{font-size:16px;color:var(--ink-soft);border-left:3px solid var(--accent);padding-left:14px;margin:0}
+  .meta{font-size:13px;color:var(--ink-soft);font-family:system-ui,sans-serif;margin-top:18px}
+  section.station{margin:52px 0;padding-top:8px}
+  .stn-no{font-size:13px;font-family:system-ui,sans-serif;color:var(--accent);letter-spacing:.08em}
+  h2{font-size:clamp(20px,4vw,26px);line-height:1.35;margin:6px 0 18px;font-weight:700}
+  h3{font-size:17px;margin:28px 0 10px;font-weight:700}
+  p{margin:0 0 14px}
+  code{font-family:"SF Mono",Consolas,Monaco,monospace;font-size:.9em;background:var(--code-bg);
+    padding:1px 5px;border-radius:var(--radius);overflow-wrap:anywhere}
+  pre{background:var(--code-bg);padding:14px 16px;overflow-x:auto;border-radius:var(--radius);
+    font-size:13.5px;line-height:1.7;border:1px solid var(--line)}
+  pre code{background:none;padding:0}
+  .jargon{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;margin:18px 0;border-radius:0 var(--radius) var(--radius) 0}
+  .jargon .term{font-weight:700}
+  .derive{margin:22px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .derive div{padding:10px 16px;border-bottom:1px solid var(--line);font-size:15.5px}
+  .derive div:last-child{border-bottom:none}
+  .derive .tag{display:inline-block;min-width:62px;font-family:system-ui,sans-serif;font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.05em}
+  .derive .counter{background:#f4f1e8;color:var(--ink-soft)}
+  .demo{border:1px solid var(--line);border-radius:var(--radius);padding:18px 16px;margin:24px 0;background:#fffdf8}
+  .demo-title{font-family:system-ui,sans-serif;font-size:12px;letter-spacing:.1em;color:var(--accent);margin-bottom:14px}
+  .ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-family:system-ui,sans-serif;font-size:14px}
+  .ctrl label{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
+  input[type=range]{flex:1;min-width:110px;height:28px;accent-color:var(--accent)}
+  .val{font-family:"SF Mono",Consolas,monospace;font-size:13px;background:var(--code-bg);padding:1px 7px;border-radius:var(--radius);min-width:52px;text-align:right}
+  .out{font-family:"SF Mono",Consolas,monospace;font-size:13.5px;background:var(--code-bg);
+    padding:12px 14px;border-radius:var(--radius);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75}
+  .out.bad{background:#fbeee8;color:#8f2f1a}
+  .btn-reset{font-family:system-ui,sans-serif;font-size:13px;padding:6px 12px;min-height:36px;
+    border:1px solid var(--line);background:#fff;border-radius:var(--radius);cursor:pointer;color:var(--ink-soft);margin-left:auto}
+  .btn-reset:hover{border-color:var(--accent);color:var(--accent)}
+  .buggy-step{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);
+    border-radius:var(--radius);margin-bottom:8px;font-size:15px;background:#fffdf8}
+  .buggy-step .n{font-family:system-ui,sans-serif;font-size:12px;color:var(--accent);font-weight:700;min-width:20px;padding-top:3px}
+  .buggy-step .note{font-size:13px;color:var(--ink-soft);display:block;margin-top:3px;font-family:system-ui,sans-serif}
+  .buggy-step[data-buggy="true"]{cursor:pointer}
+  .buggy-step.fixed{background:#f0f5f0;border-color:var(--ok)}
+  .quiz{border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:18px 0;background:#fffdf8}
+  .quiz .stem{font-weight:700;margin-bottom:12px;font-size:16px}
+  .quiz .qno{font-family:system-ui,sans-serif;font-size:12px;color:var(--accent);margin-right:6px}
+  .opt{display:block;width:100%;text-align:left;margin:0 0 7px;padding:10px 14px;min-height:44px;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);font-family:inherit;
+    font-size:15px;color:var(--ink);cursor:pointer;transition:background .12s,border-color .12s}
+  .opt:hover{border-color:var(--accent)}
+  .opt.right{background:#eef5ef;border-color:var(--ok)}
+  .opt.wrong{background:#fbeee8;border-color:var(--accent)}
+  .opt:disabled{opacity:.62;cursor:default}
+  .explain{margin-top:12px;padding:12px 14px;border-left:3px solid var(--accent);background:var(--accent-soft);
+    border-radius:0 var(--radius) var(--radius) 0;font-size:15px}
+  .explain[hidden]{display:none !important}
+  .answer-check{font-family:system-ui,sans-serif;font-size:13px;color:var(--ok);margin-top:8px;line-height:1.6}
+  .checklist{list-style:none;padding:0;margin:18px 0}
+  .checklist li{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);font-size:15.5px}
+  .checklist input[type=checkbox]{margin-top:6px;width:18px;height:18px;accent-color:var(--accent);flex-shrink:0}
+  details{border:1px solid var(--line);border-radius:var(--radius);margin:16px 0;background:#fffdf8}
+  details summary{padding:11px 16px;cursor:pointer;font-family:system-ui,sans-serif;font-size:14px;font-weight:700;color:var(--ink)}
+  details[open] summary{border-bottom:1px solid var(--line)}
+  details > div{padding:14px 16px}
+  .note-box{border-left:3px solid var(--warn);background:#f8f5ea;padding:11px 15px;margin:18px 0;font-size:14.5px;border-radius:0 var(--radius) var(--radius) 0}
+  .limit-box{border-left:3px solid var(--ink-soft);background:#f2f0e9;padding:11px 15px;margin:18px 0;font-size:14px;color:var(--ink-soft);border-radius:0 var(--radius) var(--radius) 0}
+  .tablewrap{overflow-x:auto;margin:18px 0}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--code-bg);font-weight:700;font-family:system-ui,sans-serif;font-size:13.5px}
+  .nw{white-space:nowrap}
+  footer{margin-top:70px;padding-top:22px;border-top:2px solid var(--ink);font-size:14px;color:var(--ink-soft)}
+  @media (max-width:520px){
+    body{font-size:16px;padding:0 12px 60px} pre{font-size:12.5px}
+    .ctrl label{min-width:100%} .btn-reset{margin-left:0;width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">knowvori · 交互课程 · 示例</div>
+  <h1>softmax 为什么必须减最大值</h1>
+  <p class="promise">学完这节课，你能够 <strong>对一个给定的分数向量手写出稳定的 softmax，并说出「减 max」在哪一步、救了什么</strong>。</p>
+  <div class="meta">
+    档位：有编程/工具基础 · 预估 25 分钟 ·
+    本课假设你会读写数组、知道 <code>exp</code> 是什么。不符合请告知调整喵。
+  </div>
+</header>
+
+<details>
+  <summary>先确认一下你的起点（30 秒，可跳过）</summary>
+  <div>
+    <p>一句话定档：<strong><code>Math.exp(1000)</code> 在 JavaScript 里返回什么？</strong></p>
+    <ul style="margin:10px 0 0;padding-left:20px;font-size:14.5px;color:var(--ink-soft)">
+      <li>答「一个很大的数」→ 从第 1 站开始，这节课的重点就在这里</li>
+      <li>答「Infinity」→ 直接跳到第 2 站</li>
+      <li>答「不知道」→ 也从头读，第 1 站有浏览器里能点的验证</li>
+    </ul>
+  </div>
+</details>
+
+<section class="station">
+  <div class="stn-no">第 1 站</div>
+  <h2>坑在哪：exp 会撞天花板</h2>
+
+  <p>你通常看到的 softmax 写法是这三行：</p>
+  <pre><code>e = x.map(Math.exp)      // 指数化
+s = sum(e)               // 求和
+p = e.map(v =&gt; v / s)    // 归一化</code></pre>
+
+  <p>看起来天经地义。问题出在第一行——<strong>它有个硬上限喵</strong>。</p>
+
+  <div class="jargon">
+    <p style="margin:0 0 8px"><span class="term">「浮点数</span>」不是无限精确的数，它有自己的最大值。双精度（float64）能表示的最大值大约 <code>1.8×10³⁰⁸</code>，超过就直接变成 <code>Infinity</code>。</p>
+    <p style="margin:0;color:var(--ink-soft);font-size:14.5px">就像车速表最大刻度 300——你开到 400 它不会显示 400，只会顶在 300 那或者直接罢工。数字到了天花板，就不再是它本身了。</p>
+  </div>
+
+  <div class="derive">
+    <div><span class="tag">现象</span>你会看到：<code>exp(709)</code> 还算得出来，<code>exp(710)</code> 就是 <code>Infinity</code>。差 1，结果就不是数了。</div>
+    <div><span class="tag">为什么</span>因为 <code>exp(709) ≈ 8.2×10³⁰⁷</code>，已经很接近 float64 的天花板；再乘 e 就溢出了。这是浮点格式的位数决定的，不是你写错代码。</div>
+    <div><span class="tag">所以</span>于是就有了那条看起来莫名其妙的「先减去最大值」——不是为了算得快，是为了<strong>永远别让 exp 靠近天花板</strong>。</div>
+    <div class="counter"><span class="tag">不这样</span>假如不减，<code>e</code> 里全是 <code>Infinity</code>，<code>s</code> 也是 <code>Infinity</code>，最后 <code>Infinity / Infinity</code> = <code>NaN</code>。结果不是「精度差一点」，是<strong>整组概率全部报废</strong>。</div>
+  </div>
+
+  <div class="demo">
+    <div class="demo-title">动手试一下 · 真算，不是画图</div>
+    <div class="ctrl">
+      <label>最大分数 k（向量取 [k, k+1, k+2]）
+        <input type="range" id="demoSlider" min="0" max="900" value="0" step="1">
+      </label>
+      <span class="val" id="demoVal">0</span>
+      <button class="btn-reset" id="demoReset" type="button">重置</button>
+    </div>
+    <div class="out" id="demoOut">计算中…</div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;font-family:system-ui,sans-serif">
+      把滑块从 0 一路拖到 900，注意它在 <strong>709 → 710</strong> 之间发生了什么。
+    </p>
+  </div>
+</section>
+
+<section class="station">
+  <div class="stn-no">第 2 站</div>
+  <h2>救法：减 max 为什么不算作弊</h2>
+
+  <p>稳定版只在指数化前多做一件事：<strong>整组分数一起减掉最大值</strong>。</p>
+
+  <pre><code>m = Math.max(...x)
+e = x.map(v =&gt; Math.exp(v - m))   // 减完，最大值那项 exp(0) = 1
+s = sum(e)
+p = e.map(v =&gt; v / s)</code></pre>
+
+  <div class="derive">
+    <div><span class="tag">现象</span>减完之后，<code>e</code> 里最大的一项恰好是 <code>1</code>，其余都 ≤ 1。永远不可能溢出。</div>
+    <div><span class="tag">为什么</span>因为 softmax 上下同除一个正数结果不变：<code>exp(xᵢ-m) / Σexp(xⱼ-m)</code> 分子分母都约掉了 <code>exp(-m)</code>，等于原来的 <code>exp(xᵢ) / Σexp(xⱼ)</code>。数学上同一个东西。</div>
+    <div><span class="tag">所以</span>于是「减 max」是纯白拿的：<strong>数学结果不变，数值安全性全得</strong>。没有任何代价，所以所有正经实现都这么写。</div>
+    <div class="counter"><span class="tag">不这样</span>假如你以为「减了就会改变概率分布」而不改，那模型一训练就出 NaN，你还得花半天怀疑是学习率的问题——而真正的原因在归一化那三行里。</div>
+  </div>
+
+  <div class="jargon">
+    <p style="margin:0 0 8px"><span class="term">「上溢 / 下溢」</span>：数太大超出上限叫<strong>上溢</strong>（变 Infinity），太小贴近 0 被舍掉叫<strong>下溢</strong>（变成 0）。极端负数分数会走下溢那条路。</p>
+    <p style="margin:0;color:var(--ink-soft);font-size:14.5px">减 max 同时治两头：最大项变 1（防上溢），最小项相对差距被拉近（减轻下溢）。</p>
+  </div>
+
+  <h3>找出下面这段代码里的一处问题</h3>
+  <div class="buggy-step" data-buggy="true">
+    <span class="n">①</span>
+    <span><code>e = x.map(v =&gt; Math.exp(v - x[0]))</code>
+      <span class="note">减的是第一个元素，不是最大值——想想 x 全为负数时会怎样</span>
+    </span>
+  </div>
+  <div class="buggy-step">
+    <span class="n">②</span>
+    <span><code>s = e.reduce((a,b) =&gt; a+b, 0)</code>
+      <span class="note">这一步其实是对的——也要允许你判定「这里没问题」</span>
+    </span>
+  </div>
+  <div class="buggy-step">
+    <span class="n">③</span>
+    <span><code>p = e.map(v =&gt; v / s)</code>
+      <span class="note">这一步也是对的</span>
+    </span>
+  </div>
+</section>
+
+<section class="station">
+  <div class="stn-no">自测</div>
+  <h2>先答，再看要点</h2>
+  <p style="font-size:14.5px;color:var(--ink-soft)">
+    这几题是<strong>客观校验</strong>（答案唯一、可机判）。至于「你能不能自己写对」，那需要你动手跑一遍，本页不给评分喵。
+  </p>
+
+  <div class="quiz" data-qid="q1">
+    <p class="stem"><span class="qno">Q1</span>为什么 <code>exp(710)</code> 会失败，而 <code>exp(709)</code> 不会？</p>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：以为 exp 有个参数范围限制。其实 exp 对任何数都能算，卡住的是「结果的存储格式装不下」。">因为 exp 函数的输入参数有上限，超过 709 就不合法</button>
+    <button class="opt" data-correct="true" data-why="对：exp(709)≈8.2e307 已贴近 float64 上限约 1.8e308，再乘 e 就溢出。瓶颈在数的表示，不在函数。">因为结果超出了 float64 能表示的最大值，溢出成 Infinity</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：把「计算慢」和「算不出来」混了。溢出不是性能问题，是结果直接变成非数。">因为 exp 在这个量级上计算太慢，超时了</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">exp 对任何实数都有定义，它本身不会「拒绝」某个输入。失效的是<strong>结果的存储</strong>：<code>exp(709)≈8.2e307</code> 还在 float64 上限（约 1.8e308）之内，<code>exp(710)</code> 就越界了。所以边界落在 709 与 710 之间，而不是某个「函数规则」上。</p>
+    </div>
+  </div>
+
+  <div class="quiz" data-qid="q2">
+    <p class="stem"><span class="qno">Q2</span>先减掉最大值再 softmax，输出的概率分布会变吗？</p>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：以为「改动输入就会改动输出」。但这里改动的是分子分母共同的因子，会被约掉。">会变，减了 max 相当于压平了分布</button>
+    <button class="opt" data-correct="true" data-why="对：分子分母同除 exp(m)，约掉后与原始定义完全等价。所以才说这是「白拿」的稳定化。">不会变，数学上完全等价，只是不溢出了</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：以为只有当 max 是正数时才成立。其实对任意 real 都成立，因为 exp 恒正。">只有当所有分数都是正数时才不变</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">把分子分母写成展开式：<code>exp(xᵢ-m) / Σexp(xⱼ-m)</code>，分子分母同时含因子 <code>exp(-m)</code>，约掉后就是原来的 <code>exp(xᵢ) / Σexp(xⱼ)</code>。因为 <code>exp</code> 恒为正，这个约分对<strong>任意实数 m</strong> 都成立，与正负无关。</p>
+    </div>
+  </div>
+
+  <div class="quiz" data-qid="q3">
+    <p class="stem"><span class="qno">Q3</span>稳定版里，指数化之后最大的一项等于多少？</p>
+    <button class="opt" data-correct="true" data-why="对：最大项减去自己得 0，exp(0)=1。所以 e 里所有元素都落在 (0,1]。">1</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：以为要归一化完才是 1。归一化后的「最大概率」是另一个数，别和「指数化后的最大项」混。">等于最终概率的最大值</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：以为会变成 0 或负数。exp 永远为正，减 max 只会让最大项落到 0 的指数上。">0</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">最大项减自己得 0，<code>exp(0)=1</code>；其余项指数为负，落在 <code>(0,1)</code> 之间。所以指数化后 <code>e</code> 的最大元素<strong>恒为 1</strong>，求和范围是 <code>(1, n]</code>——这就是它永远溢不出去的原因。注意别和「归一化后最大概率」混：那是另一个数。</p>
+    </div>
+  </div>
+
+  <div class="quiz" data-qid="q9">
+    <p class="stem"><span class="qno">Q9 · 迁移题</span>你要把向量 <code>x = [1e200, 1e200]</code> 归一化成单位长度，写成 <code>v / Math.sqrt(v·v)</code>。会出什么事？</p>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：觉得「都是正数、没有 exp，应该很安全」。溢出跟 exp 没关系，平方就能撞天花板。">没问题，只要没有 exp 就不会溢出</button>
+    <button class="opt" data-correct="true" data-why="对：1e200 的平方是 1e400，直接 Infinity，开方还是 Infinity，两个分量都变成 0/Infinity 那种废值。修法和 softmax 同一招——先缩放再算。">平方就溢出了，整个向量会变成 0 或 NaN</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：以为只有 exp 这种「大函数」才危险。实际任何「先放大再求和」的结构都有同样的坑。">只会损失一点精度，结果仍然可用</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">危险的结构是「<strong>先放大再求和</strong>」，与有没有 exp 无关。<code>1e200² = 1e400</code> 溢出成 <code>Infinity</code>，<code>sqrt(Infinity)=Infinity</code>，每个分量变成 <code>1e200/Infinity = 0</code>。修法和 softmax 同一招：先按最大绝对值缩放再算，比值不变。</p>
+    </div>
+  </div>
+</section>
+
+<section class="station">
+  <div class="stn-no">动手</div>
+  <h2>自己跑一遍，亲眼看到 NaN</h2>
+  <p>复制到浏览器控制台或 node 里跑。这段代码会<strong>同时</strong>打印朴素版和稳定版：</p>
+  <pre><code id="snippet">const naive = v => {
+  const e = v.map(Math.exp);
+  const s = e.reduce((a, b) => a + b, 0);
+  return e.map(x => x / s);
+};
+const stable = v => {
+  const m = Math.max(...v);
+  const e = v.map(x => Math.exp(x - m));
+  const s = e.reduce((a, b) => a + b, 0);
+  return e.map(x => x / s);
+};
+console.log(naive([0, 1, 2]));
+console.log(stable([0, 1, 2]));
+console.log(naive([710, 711, 712]));
+console.log(stable([710, 711, 712]));</code></pre>
+  <div class="note-box">
+    <strong>预期输出</strong><br>
+    <code>[0.09003057317038046, 0.24472847105479764, 0.6652409557748219]</code><br>
+    <code>[0.09003057317038046, 0.24472847105479764, 0.6652409557748218]</code><br>
+    <code>[NaN, NaN, NaN]</code><br>
+    <code>[0.09003057317038046, 0.24472847105479764, 0.6652409557748218]</code><br>
+    <span style="font-size:13px;color:var(--ink-soft)">状态：<strong>已运行</strong>（Node v24.19.0 实测，末位差异来自求和顺序）</span>
+  </div>
+</section>
+
+<section class="station">
+  <div class="stn-no">完成清单</div>
+  <h2>勾完，这节课就算过关</h2>
+  <ul class="checklist">
+    <li><input type="checkbox"><span>我能不看资料说出 exp 在哪个数附近会溢出</span></li>
+    <li><input type="checkbox"><span>我能解释「减 max 不改变结果」，并写出约掉的那一步</span></li>
+    <li><input type="checkbox"><span>我知道不减会得到 NaN，而不是「精度稍差」</span></li>
+    <li><input type="checkbox"><span>我能在一段新代码里认出同类陷阱（先放大再求和）</span></li>
+  </ul>
+</section>
+
+<details>
+  <summary>来源与边界（必读 · 诚实声明）</summary>
+  <div style="font-size:14.5px">
+    <p><strong>依据</strong><br>本课依据 IEEE 754 双精度格式的公开规格与通用数值计算实践。<strong>未联网核验具体文献</strong>，未引用任何论文。</p>
+    <p><strong>简化假设</strong></p>
+    <ul style="margin:0 0 12px;padding-left:20px">
+      <li>演示固定用三元素向量 <code>[k, k+1, k+2]</code>，真实场景维度更高</li>
+      <li>只讲上溢与减 max，不涉及下溢的完整补救（如 log-sum-exp）</li>
+      <li>不说多精度 / bfloat16 等其他格式的边界，那是别的话题</li>
+    </ul>
+    <p><strong>已检查</strong></p>
+    <ul style="margin:0 0 12px;padding-left:20px">
+      <li>数值逻辑：<code>exp(709)=8.218407461554972e+307</code>、<code>exp(710)=Infinity</code>，Node 实测</li>
+      <li>动手题预期输出：Node v24.19.0 实际运行结果</li>
+      <li>零外部请求；答题前不显示答案；演示滑块可重置</li>
+    </ul>
+    <p><strong>未检查 / 已知限制</strong></p>
+    <ul style="margin:0;padding-left:20px;color:var(--ink-soft)">
+      <li>Python 下 <code>math.exp(710)</code> 抛 <code>OverflowError</code> 而非返回 inf，本课演示用 JS 语义</li>
+      <li>移动端排版未在真机实测</li>
+      <li>未做「学习者是否真的学会」的效果验证——本页只保证内容与交互自洽</li>
+    </ul>
+  </div>
+</details>
+
+<details>
+  <summary>速查卡 · 日后复习只看这一块</summary>
+  <div>
+    <div class="tablewrap">
+      <table>
+        <tr><th class="nw">概念</th><th>一句话</th><th class="nw">别搞错</th></tr>
+        <tr><td>溢出点</td><td>float64 下 exp 在 709→710 之间失效</td><td>不是函数限制，是存储限制</td></tr>
+        <tr><td>减 max</td><td>分子分母同除 exp(m)，等价</td><td>不改变分布，只防溢出</td></tr>
+        <tr><td>指数化后最大项</td><td>恒为 1</td><td>不是最终概率的最大值</td></tr>
+        <tr><td>同类陷阱</td><td>任何「先放大再求和」</td><td>不只 exp 会中招</td></tr>
+      </table>
+    </div>
+  </div>
+</details>
+
+<footer>
+  <p style="margin:0 0 8px"><strong>下一站</strong>log-sum-exp：当你需要的不是概率而是 log 概率时，怎么继续不溢出。</p>
+  <p style="margin:0;font-size:13.5px">
+    卡在某一句 → 把原句贴回 Agent，要求「按卡点清单格式拆解」喵。
+  </p>
+</footer>
+
+</div>
+
+<script>
+'use strict';
+
+const slider = document.getElementById('demoSlider');
+const demoVal = document.getElementById('demoVal');
+const demoOut = document.getElementById('demoOut');
+
+/* 真算：不使用任何写死的数字 */
+function naiveSoftmax(v) {
+  const e = v.map(Math.exp);
+  const s = e.reduce((a, b) => a + b, 0);
+  return e.map(x => x / s);
+}
+function stableSoftmax(v) {
+  const m = Math.max(...v);
+  const e = v.map(x => Math.exp(x - m));
+  const s = e.reduce((a, b) => a + b, 0);
+  return e.map(x => x / s);
+}
+function fmt(arr) {
+  return '[' + arr.map(x => Number.isFinite(x) ? x.toFixed(6) : String(x)).join(', ') + ']';
+}
+
+function renderDemo() {
+  if (!slider || !demoOut) return;
+  const k = Number(slider.value);
+  const v = [k, k + 1, k + 2];
+  if (demoVal) demoVal.textContent = k;
+
+  const n = naiveSoftmax(v);
+  const s = stableSoftmax(v);
+  const broken = n.some(x => !Number.isFinite(x));
+
+  let text = '';
+  text += 'x          = [' + v.join(', ') + ']\n';
+  text += 'exp(k)     = ' + (Number.isFinite(Math.exp(k)) ? Math.exp(k).toExponential(4) : String(Math.exp(k))) + '\n';
+  text += '\n朴素版     = ' + fmt(n) + (broken ? '   ← 报废' : '') + '\n';
+  text += '稳定版     = ' + fmt(s) + '   ← 始终可用\n';
+
+  if (k >= 710) {
+    text += '\n↑ 已经越过 709 这条线：朴素版分子分母双双 Infinity，Infinity/Infinity = NaN。';
+  } else if (k >= 700) {
+    text += '\n↑ 正在逼近天花板：exp(' + k + ') 已经是 10^' + Math.round(Math.log10(Math.exp(k))) + ' 量级，再大一点点就没了。';
+  } else {
+    text += '\n↑ 还安全。但注意：朴素版和稳定版的结果此刻一模一样——这正是「等价」的意思。';
+  }
+
+  demoOut.textContent = text;
+  demoOut.classList.toggle('bad', broken);
+}
+
+if (slider) {
+  slider.addEventListener('input', renderDemo);
+  renderDemo();
+}
+
+/* 重置：所有交互必须能回到初始状态 */
+const resetBtn = document.getElementById('demoReset');
+if (resetBtn) {
+  resetBtn.addEventListener('click', () => {
+    if (slider) { slider.value = slider.defaultValue; renderDemo(); }
+    document.querySelectorAll('.quiz').forEach(function (q) {
+      q.querySelectorAll('.opt').forEach(function (o) {
+        o.disabled = false;
+        o.classList.remove('right', 'wrong');
+      });
+      const ex = q.querySelector('.explain');
+      if (ex) ex.hidden = true;
+      q.querySelectorAll('.answer-check').forEach(function (n) { n.remove(); });
+    });
+    document.querySelectorAll('.buggy-step').forEach(function (st) {
+      st.classList.remove('fixed');
+    });
+  });
+}
+
+/* Buggy 找错 */
+document.querySelectorAll('.buggy-step[data-buggy="true"]').forEach(function (step) {
+  step.addEventListener('click', function () {
+    step.classList.toggle('fixed');
+  });
+});
+
+/* 自测：答完才展开 */
+document.querySelectorAll('.quiz').forEach(function (quiz) {
+  const opts = quiz.querySelectorAll('.opt');
+  const explain = quiz.querySelector('.explain');
+
+  opts.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      const correct = btn.dataset.correct === 'true';
+      opts.forEach(function (o) { o.disabled = true; });
+      btn.classList.add(correct ? 'right' : 'wrong');
+
+      const line = document.createElement('div');
+      line.className = 'answer-check';
+      line.textContent = (correct ? '✓ ' : '✗ ') + (btn.dataset.why || '');
+
+      if (correct) {
+        if (explain) explain.hidden = true;
+        line.style.color = 'var(--ok)';
+        quiz.appendChild(line);
+      } else {
+        line.style.color = 'var(--accent)';
+        if (explain) {
+          explain.hidden = false;
+          quiz.insertBefore(line, explain);
+        } else {
+          quiz.appendChild(line);
+        }
+        opts.forEach(function (o) {
+          if (o.dataset.correct === 'true') o.classList.add('right');
+        });
+      }
+    });
+  });
+});
+
+/* 复制代码块 */
+const snippet = document.getElementById('snippet');
+if (snippet) {
+  const btn = document.createElement('button');
+  btn.textContent = '复制代码';
+  btn.className = 'btn-reset';
+  btn.style.marginLeft = '0';
+  btn.addEventListener('click', async function () {
+    try {
+      await navigator.clipboard.writeText(snippet.textContent);
+      btn.textContent = '已复制';
+      setTimeout(function () { btn.textContent = '复制代码'; }, 1400);
+    } catch (e) {
+      btn.textContent = '请手动选中复制';
+    }
+  });
+  snippet.parentElement.after(btn);
+}
+</script>
+</body>
+</html>

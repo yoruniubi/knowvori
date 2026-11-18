@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课程标题 · knowvori</title>
+<style>
+  /* 纸质工程笔记：米底、墨黑、一个强调色。无外部字体、无 CDN。 */
+  :root{
+    --paper:#f7f4ec;
+    --ink:#1f1d19;
+    --ink-soft:#5a564e;
+    --line:#d9d2c2;
+    --accent:#b4472a;      /* 唯一强调色 */
+    --accent-soft:#fbeee8;
+    --ok:#3f7d4a;
+    --warn:#8a6d1f;
+    --code-bg:#efeade;
+    --radius:3px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Songti SC","SimSun",Georgia,serif;
+    font-size:17px;
+    line-height:1.85;
+    padding:0 16px 80px;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  /* ---------- 顶部：一句话说清学完能做什么 ---------- */
+  header.hero{padding:48px 0 28px;border-bottom:2px solid var(--ink)}
+  .eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-family:system-ui,sans-serif;margin-bottom:10px}
+  h1{font-size:clamp(24px,5vw,34px);line-height:1.3;margin:0 0 14px;font-weight:700}
+  .promise{font-size:16px;color:var(--ink-soft);border-left:3px solid var(--accent);padding-left:14px;margin:0}
+  .meta{font-size:13px;color:var(--ink-soft);font-family:system-ui,sans-serif;margin-top:18px}
+
+  /* ---------- 站 ---------- */
+  section.station{margin:52px 0;padding-top:8px}
+  .stn-no{font-size:13px;font-family:system-ui,sans-serif;color:var(--accent);letter-spacing:.08em}
+  h2{font-size:clamp(20px,4vw,26px);line-height:1.35;margin:6px 0 18px;font-weight:700}
+  h3{font-size:17px;margin:28px 0 10px;font-weight:700}
+  p{margin:0 0 14px}
+  code{
+    font-family:"SF Mono",Consolas,Monaco,monospace;
+    font-size:.9em;background:var(--code-bg);
+    padding:1px 5px;border-radius:var(--radius);
+    overflow-wrap:anywhere;
+  }
+  pre{
+    background:var(--code-bg);padding:14px 16px;overflow-x:auto;
+    border-radius:var(--radius);font-size:13.5px;line-height:1.7;
+    border:1px solid var(--line);
+  }
+  pre code{background:none;padding:0}
+
+  /* ---------- 拆行话块（I2：术语首现即拆） ---------- */
+  .jargon{
+    border-left:3px solid var(--accent);background:var(--accent-soft);
+    padding:12px 16px;margin:18px 0;border-radius:0 var(--radius) var(--radius) 0;
+  }
+  .jargon .term{font-weight:700}
+
+  /* ---------- 推导四句（I1：结论前必有推导） ---------- */
+  .derive{margin:22px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .derive div{padding:10px 16px;border-bottom:1px solid var(--line);font-size:15.5px}
+  .derive div:last-child{border-bottom:none}
+  .derive .tag{
+    display:inline-block;min-width:62px;font-family:system-ui,sans-serif;
+    font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.05em;
+  }
+  .derive .counter{background:#f4f1e8;color:var(--ink-soft)}
+
+  /* ---------- 真算演示容器（I3：禁止假动画） ---------- */
+  .demo{
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 16px;margin:24px 0;background:#fffdf8;
+  }
+  .demo-title{font-family:system-ui,sans-serif;font-size:12px;letter-spacing:.1em;color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+  .ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-family:system-ui,sans-serif;font-size:14px}
+  .ctrl label{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
+  input[type=range]{flex:1;min-width:110px;height:28px;accent-color:var(--accent)}
+  .val{font-family:"SF Mono",Consolas,monospace;font-size:13px;background:var(--code-bg);padding:1px 7px;border-radius:var(--radius);min-width:52px;text-align:right}
+  .out{
+    font-family:"SF Mono",Consolas,monospace;font-size:13.5px;
+    background:var(--code-bg);padding:12px 14px;border-radius:var(--radius);
+    white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.75;
+  }
+
+  /* ---------- 重置（试错必须能回初始状态） ---------- */
+  .btn-reset{
+    font-family:system-ui,sans-serif;font-size:13px;padding:6px 12px;min-height:36px;
+    border:1px solid var(--line);background:#fff;border-radius:var(--radius);
+    cursor:pointer;color:var(--ink-soft);margin-left:auto;
+  }
+  .btn-reset:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ---------- Guided（零基础）/ Buggy（有基础） ---------- */
+  .guided-step,.buggy-step{
+    display:flex;gap:10px;align-items:flex-start;
+    padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);
+    margin-bottom:8px;font-size:15px;background:#fffdf8;
+  }
+  .guided-step .n,.buggy-step .n{
+    font-family:system-ui,sans-serif;font-size:12px;color:var(--accent);
+    font-weight:700;min-width:20px;padding-top:3px;
+  }
+  .guided-step input{
+    font-family:"SF Mono",Consolas,monospace;font-size:14px;
+    border:1px solid var(--line);border-radius:var(--radius);
+    padding:3px 8px;width:96px;min-height:34px;background:#fff;color:var(--ink);
+  }
+  .guided-step .given{color:var(--ink-soft);font-family:"SF Mono",Consolas,monospace;font-size:13px}
+  .guided-step .note,.buggy-step .note{font-size:13px;color:var(--ink-soft);display:block;margin-top:3px;font-family:system-ui,sans-serif}
+  .guided-step.done,.buggy-step.fixed{background:#f0f5f0;border-color:var(--ok)}
+  .buggy-step[data-buggy="true"]{cursor:pointer}
+
+  /* ---------- 自测（I4：答完才展开） ---------- */
+  .quiz{border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:18px 0;background:#fffdf8}
+  .quiz .stem{font-weight:700;margin-bottom:12px;font-size:16px}
+  .quiz .qno{font-family:system-ui,sans-serif;font-size:12px;color:var(--accent);margin-right:6px}
+  .opt{
+    display:block;width:100%;text-align:left;margin:0 0 7px;
+    padding:10px 14px;min-height:44px;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+    font-family:inherit;font-size:15px;color:var(--ink);cursor:pointer;
+    transition:background .12s,border-color .12s;
+  }
+  .opt:hover{border-color:var(--accent)}
+  .opt.right{background:#eef5ef;border-color:var(--ok)}
+  .opt.wrong{background:#fbeee8;border-color:var(--accent)}
+  .opt:disabled{opacity:.62;cursor:default}
+  .explain{
+    margin-top:12px;padding:12px 14px;border-left:3px solid var(--accent);
+    background:var(--accent-soft);border-radius:0 var(--radius) var(--radius) 0;
+    font-size:15px;
+  }
+  .explain[hidden]{display:none !important}
+  .answer-check{font-family:system-ui,sans-serif;font-size:13px;color:var(--ok);margin-top:8px;line-height:1.6}
+
+  /* ---------- 完成清单 ---------- */
+  .checklist{list-style:none;padding:0;margin:18px 0}
+  .checklist li{
+    display:flex;gap:10px;align-items:flex-start;
+    padding:9px 0;border-bottom:1px dashed var(--line);font-size:15.5px;
+  }
+  .checklist input[type=checkbox]{margin-top:6px;width:18px;height:18px;accent-color:var(--accent);flex-shrink:0}
+
+  /* ---------- 折叠（I5：默认折叠细节） ---------- */
+  details{border:1px solid var(--line);border-radius:var(--radius);margin:16px 0;background:#fffdf8}
+  details summary{
+    padding:11px 16px;cursor:pointer;font-family:system-ui,sans-serif;
+    font-size:14px;font-weight:700;color:var(--ink);
+  }
+  details[open] summary{border-bottom:1px solid var(--line)}
+  details > div{padding:14px 16px}
+
+  /* ---------- 提示条 ---------- */
+  .note-box{border-left:3px solid var(--warn);background:#f8f5ea;padding:11px 15px;margin:18px 0;font-size:14.5px;border-radius:0 var(--radius) var(--radius) 0}
+  .limit-box{border-left:3px solid var(--ink-soft);background:#f2f0e9;padding:11px 15px;margin:18px 0;font-size:14px;color:var(--ink-soft);border-radius:0 var(--radius) var(--radius) 0}
+
+  /* ---------- 表格（手机可横滑） ---------- */
+  .tablewrap{overflow-x:auto;margin:18px 0;-webkit-overflow-scrolling:touch}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--code-bg);font-weight:700;font-family:system-ui,sans-serif;font-size:13.5px}
+  .nw{white-space:nowrap}
+
+  footer{margin-top:70px;padding-top:22px;border-top:2px solid var(--ink);font-size:14px;color:var(--ink-soft)}
+
+  @media (max-width:520px){
+    body{font-size:16px;padding:0 12px 60px}
+    pre{font-size:12.5px}
+    .ctrl label{min-width:100%}
+    .btn-reset{margin-left:0;width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ═══════════ 顶部：一句话说清学完能做什么（C1） ═══════════ -->
+<header class="hero">
+  <div class="eyebrow">knowvori · 交互课程</div>
+  <h1>课程标题</h1>
+  <p class="promise">学完这节课，你能够 <strong>［可验证的目标：用可观察动词，如「手算 3 个词的权重并核对每行和为 1」］</strong>。</p>
+  <div class="meta">
+    ［档位：零基础 / 有编程基础 / 有领域基础］ ·
+    ［预估时长］ ·
+    本课假设 <strong>［写清假设，不符请告知调整］</strong>
+  </div>
+</header>
+
+<!-- ═══════════ 前置检查（可折叠） ═══════════ -->
+<details>
+  <summary>先确认一下你的起点（30 秒，可跳过）</summary>
+  <div>
+    <p>这道题一句话就能定档，比填问卷准：</p>
+    <p><strong>［一句诊断题，例如：<code>[1,2,3]</code> 和 <code>[4,5,6]</code> 相乘，你直觉上是得到一个数还是一个向量？］</strong></p>
+    <ul style="margin:10px 0 0;padding-left:20px;font-size:14.5px;color:var(--ink-soft)">
+      <li>答「两个都能说清」→ 本课可直接跳到第 3 站</li>
+      <li>答「一个向量」→ 按顺序读，跳过第 1 站</li>
+      <li>答「不知道」→ 从第 1 站开始，这就是为你写的</li>
+    </ul>
+  </div>
+</details>
+
+<!-- ═══════════ 站 ═══════════ -->
+<section class="station">
+  <div class="stn-no">第 1 站</div>
+  <h2>［这一站要拆掉的卡点］</h2>
+
+  <p>［先复述用户的卡点原文，让他确认「对，就是这句」。］</p>
+
+  <!-- 拆行话块：每个术语首次出现即拆 -->
+  <div class="jargon">
+    <p style="margin:0 0 8px"><span class="term">「［行话］」</span>不是［用户可能的误读］，它是［大白话解释］。</p>
+    <p style="margin:0;color:var(--ink-soft);font-size:14.5px">就像［日常类比］——完全同一句话。</p>
+  </div>
+
+  <!-- 推导四句（缺一不可，最后一句最常被漏） -->
+  <div class="derive">
+    <div><span class="tag">现象</span>你会看到 ［X］。</div>
+    <div><span class="tag">为什么</span>因为 ［A → B → C］。</div>
+    <div><span class="tag">所以</span>于是就有了 ［Y 这个做法］。</div>
+    <div class="counter"><span class="tag">不这样</span>假如不这么做，会变成 ［Z，通常更糟］。</div>
+  </div>
+
+  <!-- 真算演示（C6：禁止写死数字） -->
+  <div class="demo">
+    <div class="demo-title">动手试一下 · 真算，不是画图</div>
+    <div class="ctrl">
+      <label>［参数名］
+        <input type="range" id="demoSlider" min="1" max="100" value="10" step="1">
+      </label>
+      <span class="val" id="demoVal">10</span>
+      <button class="btn-reset" id="demoReset" type="button">重置</button>
+    </div>
+    <div class="out" id="demoOut">［结果由下面的 computeDemo 实时算出］</div>
+    <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;font-family:system-ui,sans-serif">
+      试试点到最左和最右——极端情况往往才是理解的钥匙。
+    </p>
+  </div>
+
+  <!-- Guided（零基础档用） -->
+  <h3>Guided：补上缺口</h3>
+  <div class="guided-step">
+    <span class="n">①</span>
+    <span>［步骤说明］：<input type="text" data-answer="6" data-hint="看一下分母是什么">
+      <span class="note">这一步在干什么：［一句话说清，别让用户猜］</span>
+    </span>
+  </div>
+  <div class="guided-step">
+    <span class="n">②</span>
+    <span>［步骤说明］：<input type="text" data-answer="3" data-hint="分母应该是 √d，不是 d">
+      <span class="note">这一步在干什么：［一句话］</span>
+    </span>
+  </div>
+  <div class="guided-step">
+    <span class="n">③</span>
+    <span>［最后一步］：<span class="given">（已给出：［结果］）</span>
+      <span class="note">脚手架不能全撤，最后一步给出来，让用户看到终点长什么样</span>
+    </span>
+  </div>
+
+  <!-- Buggy（有基础档用）：删掉上面 Guided 那组，换成这组
+  <h3>找出下面这处错误，并说明为什么错</h3>
+  <div class="buggy-step" data-buggy="true">
+    <span class="n">①</span>
+    <span><code>score = q · k / d</code>
+      <span class="note">［埋一个真实误解，不是随机打错字符］</span>
+    </span>
+  </div>
+  <div class="buggy-step">
+    <span class="n">②</span>
+    <span><code>weight = softmax(score)</code>
+      <span class="note">这一步其实是对的——也要允许用户判定「这里没问题」</span>
+    </span>
+  </div>
+  -->
+</section>
+
+<!-- ═══════════ 再复制一个「站」的骨架 ═══════════ -->
+<section class="station">
+  <div class="stn-no">第 2 站</div>
+  <h2>［卡点 2］</h2>
+  <p>［正文：术语首现即拆，结论前必有推导四句］</p>
+  <div class="derive">
+    <div><span class="tag">现象</span>［…］</div>
+    <div><span class="tag">为什么</span>［…］</div>
+    <div><span class="tag">所以</span>［…］</div>
+    <div class="counter"><span class="tag">不这样</span>［…］</div>
+  </div>
+  <p style="font-family:system-ui,sans-serif;font-size:14px;color:var(--accent);margin-bottom:0">
+    ↓ 下一站：［一句钩子，把悬念留下］
+  </p>
+</section>
+
+<!-- ═══════════ 自测：答完才展开 ═══════════ -->
+<section class="station">
+  <div class="stn-no">自测</div>
+  <h2>先答，再看要点</h2>
+  <p style="font-size:14.5px;color:var(--ink-soft)">
+    这几题是<strong>客观校验</strong>（答案唯一、可机判）。涉及推理质量与表达质量的部分，本页不给评分——那需要人判断。
+  </p>
+
+  <div class="quiz" data-qid="q1">
+    <p class="stem"><span class="qno">Q1</span>［题目，检查目标 1］</p>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［真实误解 A］">［干扰项来自真实误解］</button>
+    <button class="opt" data-correct="true"  data-why="对，因为［一句为什么对］">［正确项］</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［真实误解 B］">［另一个真实误解］</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［真实误解 C］">［第三个真实误解］</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">［正确的推导链，四句话在这里浓缩］</p>
+    </div>
+  </div>
+
+  <div class="quiz" data-qid="q2">
+    <p class="stem"><span class="qno">Q2</span>［题目］</p>
+    <button class="opt" data-correct="true"  data-why="对，因为［…］">［正确项］</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［…］">［干扰项］</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［…］">［干扰项］</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">［…］</p>
+    </div>
+  </div>
+
+  <!-- 迁移题：换情境（不只是换数字），这是唯一能区分「懂了」和「记住了」的题型 -->
+  <div class="quiz" data-qid="q9">
+    <p class="stem"><span class="qno">Q9 · 迁移题</span>［换一个新情境，考同一个结构］</p>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［把旧情境的结论直接搬过来］">［…］</button>
+    <button class="opt" data-correct="true"  data-why="对，因为［结构没变，只是情境变了］">［…］</button>
+    <button class="opt" data-correct="false" data-why="你可能是这样想的：［…］">［…］</button>
+    <div class="explain" hidden>
+      <strong>要点</strong>
+      <p style="margin:6px 0 0">［为什么结构一样］</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 动手 ═══════════ -->
+<section class="station">
+  <div class="stn-no">动手</div>
+  <h2>自己写一遍</h2>
+  <p>［给可复制代码 + 明确预期输出。没跑过就标「未运行」。］</p>
+  <pre><code id="snippet">［代码］</code></pre>
+  <div class="note-box">
+    <strong>预期输出</strong><br>
+    <code>［逐行写出预期输出，用户能自己核对］</code><br>
+    <span style="font-size:13px;color:var(--ink-soft)">［状态：已运行 / 未运行（推演结果）］</span>
+  </div>
+</section>
+
+<!-- ═══════════ 完成清单（I7：测能不能用出来） ═══════════ -->
+<section class="station">
+  <div class="stn-no">完成清单</div>
+  <h2>勾完，这节课就算过关</h2>
+  <ul class="checklist">
+    <li><input type="checkbox"><span>我能不看资料说出［目标 1 的具体能力］</span></li>
+    <li><input type="checkbox"><span>我能解释［为什么］，而不是只记住［结论］</span></li>
+    <li><input type="checkbox"><span>我知道［不这么做会怎样］</span></li>
+    <li><input type="checkbox"><span>我能在一道没见过的新题上用出来</span></li>
+  </ul>
+</section>
+
+<!-- ═══════════ 来源与边界（C7：诚实声明） ═══════════ -->
+<details>
+  <summary>来源与边界（必读 · 诚实声明）</summary>
+  <div style="font-size:14.5px">
+    <p><strong>依据</strong><br>［联网时：具体文献/文档。未联网时：写「本课依据通用知识，未联网核验具体文献」］</p>
+    <p><strong>简化假设</strong></p>
+    <ul style="margin:0 0 12px;padding-left:20px">
+      <li>［例：演示用 d=4，真实模型 d=3584］</li>
+      <li>［例：不涉及多头拼接的完整推导］</li>
+    </ul>
+    <p><strong>已检查</strong></p>
+    <ul style="margin:0 0 12px;padding-left:20px">
+      <li>数值逻辑：脚本断言 N 项通过</li>
+      <li>零外部请求</li>
+      <li>答题前不显示答案</li>
+    </ul>
+    <p><strong>未检查 / 已知限制</strong></p>
+    <ul style="margin:0;padding-left:20px;color:var(--ink-soft)">
+      <li>［例：页面排版未在真实浏览器实测］</li>
+      <li>［例：移动端未测］</li>
+    </ul>
+  </div>
+</details>
+
+<!-- ═══════════ 速查卡（默认折叠） ═══════════ -->
+<details>
+  <summary>速查卡 · 日后复习只看这一块</summary>
+  <div>
+    <div class="tablewrap">
+      <table>
+        <tr><th class="nw">概念</th><th>一句话</th><th class="nw">别搞错</th></tr>
+        <tr><td>［…］</td><td>［…］</td><td>［最常见的误解］</td></tr>
+      </table>
+    </div>
+  </div>
+</details>
+
+<footer>
+  <p style="margin:0 0 8px"><strong>下一站</strong>［下一节主题 + 一句悬念］</p>
+  <p style="margin:0;font-size:13.5px">
+    卡在某一句 → 把原句贴回 Agent，要求「按卡点清单格式拆解」。
+  </p>
+</footer>
+
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════
+   1. 真算演示（C6：所有数字必须算出来，不许写死）
+   ═══════════════════════════════════════════════════════════ */
+const slider = document.getElementById('demoSlider');
+const demoVal = document.getElementById('demoVal');
+const demoOut = document.getElementById('demoOut');
+
+// 把真实计算放在这里，改参数就变。用户乱填也必须给出对的结果。
+function computeDemo(x) {
+  // ［替换成真实公式］
+  return { label: '［结果名］', value: x * 2 };
+}
+
+function renderDemo() {
+  if (!slider) return;
+  const x = Number(slider.value);
+  if (demoVal) demoVal.textContent = x;
+  const r = computeDemo(x);
+  let text = r.label + ' = ' + r.value;
+  // 边界提醒：极端值才是理解的钥匙
+  if (x === Number(slider.min)) text += '\n← 这是最小值，注意它和中间值的差别';
+  if (x === Number(slider.max)) text += '\n← 这是最大值，注意它和中间值的差别';
+  if (demoOut) demoOut.textContent = text;
+}
+if (slider) {
+  slider.addEventListener('input', renderDemo);
+  renderDemo();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   2. 重置：所有交互必须能回到初始状态
+      否则用户试错一次就废了，不敢乱试 = 学不到东西
+   ═══════════════════════════════════════════════════════════ */
+const resetBtn = document.getElementById('demoReset');
+if (resetBtn) {
+  resetBtn.addEventListener('click', () => {
+    if (slider) {
+      slider.value = slider.defaultValue;
+      renderDemo();
+    }
+    // 清掉自测状态（答案重新藏起来）
+    document.querySelectorAll('.quiz').forEach(function (q) {
+      q.querySelectorAll('.opt').forEach(function (o) {
+        o.disabled = false;
+        o.classList.remove('right', 'wrong');
+      });
+      const ex = q.querySelector('.explain');
+      if (ex) ex.hidden = true;
+      q.querySelectorAll('.answer-check').forEach(function (n) { n.remove(); });
+    });
+    // 清掉填空状态
+    document.querySelectorAll('.guided-step').forEach(function (s) {
+      s.classList.remove('done');
+      const i = s.querySelector('input');
+      if (i) { i.value = ''; i.title = ''; }
+    });
+    document.querySelectorAll('.buggy-step').forEach(function (s) {
+      s.classList.remove('fixed');
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   3. Guided 填空校验（零基础档）
+      错了只给方向，不给答案
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.guided-step input[data-answer]').forEach(function (input) {
+  const step = input.closest('.guided-step');
+  const answer = input.dataset.answer;
+  const hint = input.dataset.hint || '';
+  input.addEventListener('input', function () {
+    const ok = input.value.trim() === answer;
+    step.classList.toggle('done', ok);
+    input.title = (!ok && input.value.trim()) ? hint : '';
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   4. Buggy 找错（有基础档）
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.buggy-step[data-buggy="true"]').forEach(function (step) {
+  step.addEventListener('click', function () {
+    step.classList.toggle('fixed');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   5. 自测：答完才展开（C5 / I4）
+      答对 → 一行确认；答错 → 指出「你可能是这样想的」再展开要点
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.quiz').forEach(function (quiz) {
+  const opts = quiz.querySelectorAll('.opt');
+  const explain = quiz.querySelector('.explain');
+
+  opts.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      const correct = btn.dataset.correct === 'true';
+
+      // 答对不展开完整要点（只确认）；答错才展开
+      if (explain) explain.hidden = correct;
+
+      opts.forEach(function (o) { o.disabled = true; });
+      btn.classList.add(correct ? 'right' : 'wrong');
+
+      const line = document.createElement('div');
+      line.className = 'answer-check';
+
+      if (correct) {
+        line.textContent = '✓ ' + (btn.dataset.why || '答对了');
+        quiz.appendChild(line);
+      } else {
+        line.style.color = 'var(--accent)';
+        line.textContent = btn.dataset.why || '这个选项对应一个常见误解。';
+        if (explain) quiz.insertBefore(line, explain);
+        else quiz.appendChild(line);
+        // 同时标出正确项，让用户能对照
+        opts.forEach(function (o) {
+          if (o.dataset.correct === 'true') o.classList.add('right');
+        });
+      }
+    });
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   6. 复制代码块
+   ═══════════════════════════════════════════════════════════ */
+const snippet = document.getElementById('snippet');
+if (snippet) {
+  const btn = document.createElement('button');
+  btn.textContent = '复制代码';
+  btn.className = 'btn-reset';
+  btn.style.marginLeft = '0';
+  btn.addEventListener('click', async function () {
+    try {
+      await navigator.clipboard.writeText(snippet.textContent);
+      btn.textContent = '已复制';
+      setTimeout(function () { btn.textContent = '复制代码'; }, 1400);
+    } catch (e) {
+      btn.textContent = '请手动选中复制';
+    }
+  });
+  snippet.parentElement.after(btn);
+}
+</script>
+</body>
+</html>
