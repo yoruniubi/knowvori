@@ -24,13 +24,49 @@ Agent 会拆目标、找卡点、设计交互与练习，最后交付一个**单
 
 > 新增的四份刻意换了视觉语言：一个实时 3D 相机实验、一个梯度下降控制台、一个二分查找小游戏、一张会重新抽样的数据报纸。3D 示例内联 Three.js（MIT），文件约 565KB；仍是单文件、零外部请求、断网可用。
 
-| 3D · 空间 | 动态实验室 · 数值 | 游戏化 · 算法 |
-|---|---|---|
-| <a href="docs/screenshots/three-camera-depth.png" title="查看大图"><img src="docs/screenshots/three-camera-depth-thumb.png" width="260" loading="lazy" alt="3D 透视投影实验"></a><br>[为什么近处的东西更大](skills/knowvori/examples/three-camera-depth.html)<br><sub>Three.js · 透视 / 正交</sub> | <a href="docs/screenshots/gradient-descent-lab.png" title="查看大图"><img src="docs/screenshots/gradient-descent-lab-thumb.png" width="260" loading="lazy" alt="梯度下降实验室"></a><br>[学习率一大，为什么飞出去](skills/knowvori/examples/gradient-descent-lab.html)<br><sub>Canvas · 梯度下降</sub> | <a href="docs/screenshots/binary-search-detective.png" title="查看大图"><img src="docs/screenshots/binary-search-detective-thumb.png" width="260" loading="lazy" alt="二分查找数字侦探"></a><br>[100 个数字，最多问几次](skills/knowvori/examples/binary-search-detective.html)<br><sub>DOM / CSS · 二分查找</sub> |
-| **数据叙事 · 统计** | **工程笔记 · 数值** | **手绘 · 空间** |
-| <a href="docs/screenshots/ab-test-editorial.png" title="查看大图"><img src="docs/screenshots/ab-test-editorial-thumb.png" width="260" loading="lazy" alt="A/B 测试误差棒"></a><br>[12% 比 10%，真的更好吗](skills/knowvori/examples/ab-test-editorial.html)<br><sub>SVG · 抽样 / 95% 区间</sub> | <a href="docs/screenshots/softmax.png" title="查看大图"><img src="docs/screenshots/softmax-thumb.png" width="260" loading="lazy" alt="softmax 数值稳定"></a><br>[softmax 为什么必须减最大值](skills/knowvori/examples/softmax-数值稳定.html)<br><sub>滑块 · 溢出对照</sub> | <a href="docs/screenshots/one-point-perspective.png" title="查看大图"><img src="docs/screenshots/one-point-perspective-thumb.png" width="260" loading="lazy" alt="一点透视"></a><br>[一点透视：边线为什么会汇聚](skills/knowvori/examples/one-point-perspective.html)<br><sub>拖拽 · 消失点</sub> |
-| **编辑 · 面试** | **同一套教学标准，不同的视觉语言。** | **全部示例** |
-| <a href="docs/screenshots/interview-practice.png" title="查看大图"><img src="docs/screenshots/interview-practice-thumb.png" width="260" loading="lazy" alt="面试练习"></a><br>[面试练习：讲清一次线上故障](skills/knowvori/examples/interview-practice.html)<br><sub>开放题 · 自评 rubric</sub> | 每份都走完「预测 → 操作 → 观察 → 解释 → 迁移」，但页面结构、材质和技术栈按主题重做。 | [7 份源文件 →](skills/knowvori/examples/) |
+> 图片统一为 10:7 预览，点击看大图；点击标题直接打开课程。
+
+### 3D · 空间
+
+[![为什么近处的东西更大](docs/screenshots/three-camera-depth-thumb.png)](docs/screenshots/three-camera-depth.png)
+
+**[为什么近处的东西更大](skills/knowvori/examples/three-camera-depth.html)**<br><sub>Three.js · 透视 / 正交 · 拖拽旋转 + 视场角</sub>
+
+### 动态实验室 · 数值
+
+[![学习率一大，为什么飞出去](docs/screenshots/gradient-descent-lab-thumb.png)](docs/screenshots/gradient-descent-lab.png)
+
+**[学习率一大，为什么飞出去](skills/knowvori/examples/gradient-descent-lab.html)**<br><sub>Canvas · 梯度下降 · 轨迹、学习率与重置</sub>
+
+### 游戏化 · 算法
+
+[![100 个数字，最多问几次](docs/screenshots/binary-search-detective-thumb.png)](docs/screenshots/binary-search-detective.png)
+
+**[100 个数字，最多问几次](skills/knowvori/examples/binary-search-detective.html)**<br><sub>DOM / CSS · 二分查找 · 候选区间与次数上界</sub>
+
+### 数据叙事 · 统计
+
+[![12% 比 10%，真的更好吗](docs/screenshots/ab-test-editorial-thumb.png)](docs/screenshots/ab-test-editorial.png)
+
+**[12% 比 10%，真的更好吗](skills/knowvori/examples/ab-test-editorial.html)**<br><sub>SVG · 抽样 / 95% 区间 · 重新抽样看波动</sub>
+
+### 工程笔记 · 数值
+
+[![softmax 为什么必须减最大值](docs/screenshots/softmax-thumb.png)](docs/screenshots/softmax.png)
+
+**[softmax 为什么必须减最大值](skills/knowvori/examples/softmax-数值稳定.html)**<br><sub>滑块 · 溢出对照 · 从 NaN 到稳定计算</sub>
+
+### 手绘 · 空间
+
+[![一点透视：边线为什么会汇聚](docs/screenshots/one-point-perspective-thumb.png)](docs/screenshots/one-point-perspective.png)
+
+**[一点透视：边线为什么会汇聚](skills/knowvori/examples/one-point-perspective.html)**<br><sub>拖拽 · 消失点 · 键盘方向键 / Home / End</sub>
+
+### 编辑 · 面试
+
+[![面试练习：讲清一次线上故障](docs/screenshots/interview-practice-thumb.png)](docs/screenshots/interview-practice.png)
+
+**[面试练习：讲清一次线上故障](skills/knowvori/examples/interview-practice.html)**<br><sub>开放题 · 自评 rubric · 不假装自动评分</sub>
 
 ### 示例验收
 
@@ -136,3 +172,7 @@ node skills/knowvori/scripts/validate-lesson.mjs 你的课程.html
 如果这个项目对你有帮助，欢迎 Star ⭐
 
 *一节课最难写的不是解释，是「先不给答案」的那一段。*
+
+## 友链
+linux do社区：
+https://linux.do
