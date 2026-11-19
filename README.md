@@ -1,5 +1,5 @@
 # knowvori · 交互式学习 Skill
-<img src = "docs/logo/logo.png"></img>
+<img src = "docs/logo/logo.png" width = "270"></img>
 
 > **说出你想学什么，拿到一节能动手探索、通过练习检查理解的交互课程。**
 
