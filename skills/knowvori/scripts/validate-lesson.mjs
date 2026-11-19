@@ -156,6 +156,37 @@ function check(html, file) {
   if (titleMatch) add('pass', '标题', titleMatch[1].trim());
   else add('warn', '标题', '缺 <title>，浏览器标签页会显示文件名');
 
+  // ───────── 14. 深色 / 浅色主题（通用体验要求）─────────
+  const hasDark = /prefers-color-scheme\s*:\s*dark|data-theme\s*=|classList\.(toggle|add)\(\s*['"]dark|setAttribute\(\s*['"]data-theme/i.test(html);
+  if (hasDark) add('pass', '深色模式', '支持深色主题（自动或可切换）');
+  else add('warn', '深色模式', '未见 prefers-color-scheme / 主题切换——Day/Dark 是通用要求，请人工确认或补上');
+
+  // ───────── 15. 可操作控件（主动操作原则）─────────
+  const hasControl = /<input\b|<canvas\b|draggable\s*=|pointerdown|mousedown|touchstart|contenteditable/i.test(html);
+  if (hasControl) add('pass', '可操作控件', '检测到可操作控件（输入/画布/拖拽等）');
+  else add('warn', '可操作控件', '未检测到可操作控件——确认这是阅读课，还是缺少主动操作');
+
+  // ───────── 16. 自动推进动画可暂停（主动操作原则）─────────
+  const hasRAF = /requestAnimationFrame\s*\(/.test(html);
+  const hasPause = /暂停|pause|继续|resume/i.test(html);
+  if (hasRAF && !hasPause) {
+    add('warn', '动画控制', '检测到 requestAnimationFrame 但未见暂停/继续入口——自动播放必须可停');
+  } else if (hasRAF) {
+    add('pass', '动画控制', '自动推进动画提供暂停/继续');
+  } else {
+    add('pass', '动画控制', '无自动推进动画，不适用');
+  }
+
+  // ───────── 17. 交互反馈区（C8 闭环）─────────
+  const hasFeedback = /<output\b|aria-live\s*=|role\s*=\s*["']status|class\s*=\s*["'][^"']*\b(out|result|output|status|feedback|answer|explain)\b/i.test(html);
+  if (hasControl && !hasFeedback) {
+    add('warn', '反馈区', '有可操作控件但未见结果容器（output / aria-live / .out / .result）——操作后用户看什么？');
+  } else if (hasControl) {
+    add('pass', '反馈区', '有结果反馈容器');
+  } else {
+    add('pass', '反馈区', '无交互控件，不适用');
+  }
+
   return { file, results };
 }
 
@@ -184,7 +215,7 @@ function report({ file, results }) {
   } else if (warnings > 0) {
     console.log(C.yellow(`\n  ⚠ 可交付，但 ${warnings} 项 warning 需人工确认或写进 README。`));
   } else {
-    console.log(C.green('\n  ✓ 静态检查全通过。仍需人工过 quality-checklist.md 的 1~5 节。'));
+    console.log(C.green('\n  ✓ 静态检查全通过。仍需人工过 quality-checklist.md 的 1~5 节与第 7 节真实交互验收。'));
   }
   return errors;
 }

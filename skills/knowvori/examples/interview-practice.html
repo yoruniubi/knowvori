@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>面试练习：讲清一次线上故障 · knowvori</title>
+  <style>
+    :root{--paper:#f7f4ec;--ink:#24221e;--muted:#615d54;--line:#d8d1c2;--accent:#a4432a;--soft:#eee8db;--good:#356b43}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.75 Georgia,"Songti SC",serif;padding:0 16px 64px}.wrap{max-width:780px;margin:auto}header{padding:42px 0 26px;border-bottom:2px solid var(--ink)}.eyebrow,.meta,.small{font:14px/1.6 system-ui,sans-serif;color:var(--muted)}.eyebrow{color:var(--accent);letter-spacing:.06em}h1{font-size:clamp(26px,5vw,38px);line-height:1.25;margin:8px 0 12px}h2{font-size:24px;line-height:1.35;margin-top:36px}section{margin:34px 0}.card{background:#fffdf8;border:1px solid var(--line);border-radius:4px;padding:18px;margin:18px 0}.steps{padding-left:22px}.steps li{padding:4px 0}.prompt{border-left:4px solid var(--accent);padding:14px 18px;background:#fffdf8;font-size:19px}.opt,button{font:inherit;min-height:44px;padding:8px 14px;border:1px solid var(--line);background:white;color:var(--ink);border-radius:4px;cursor:pointer}.opt{display:block;text-align:left;width:100%;margin:8px 0}.opt:hover,button:hover{border-color:var(--accent)}.quiz{background:#fffdf8;border:1px solid var(--line);padding:16px;margin:20px 0}.explain{padding:12px;background:var(--soft);margin-top:12px}.explain[hidden]{display:none}textarea{display:block;width:100%;min-height:170px;padding:12px;border:1px solid var(--line);border-radius:4px;background:white;color:var(--ink);font:16px/1.6 system-ui,sans-serif;resize:vertical}button{margin-top:10px}.answer{display:none;border-top:1px solid var(--line);margin-top:18px;padding-top:14px}.answer.visible{display:block}.rubric{width:100%;border-collapse:collapse;font-size:15px}.rubric th,.rubric td{border:1px solid var(--line);padding:9px;text-align:left;vertical-align:top}.rubric th{background:var(--soft)}.check{display:flex;gap:10px;margin:10px 0;align-items:flex-start}.check input{width:18px;height:18px;margin-top:5px;flex:none}details{border:1px solid var(--line);background:#fffdf8;margin:18px 0}summary{padding:12px;cursor:pointer}details>div{padding:0 14px 14px}.small{font-size:14px}footer{border-top:2px solid var(--ink);padding-top:18px;color:var(--muted)}
+    @media (prefers-color-scheme:dark){
+      :root{color-scheme:dark;--paper:#1c1b18;--ink:#ece7db;--muted:#aaa497;--line:#4a463d;--accent:#e08a6a;--soft:#2b2822;--good:#7fbf8c;--surface:#23211c}
+      .card,.prompt,.quiz,details{background:var(--surface)}
+      .opt,button,textarea{background:var(--surface);color:var(--ink)}
+      .explain,.rubric th{background:var(--soft)}
+    }
+    @media(max-width:520px){body{font-size:16px;padding:0 12px 48px}.card{padding:13px}.rubric{display:block;overflow-x:auto;white-space:normal}}
+  </style>
+</head>
+<body><main class="wrap">
+  <header><div class="eyebrow">knowvori · 面试表达 · 示例课</div><h1>面试练习：讲清一次线上故障</h1>
+    <p>学完后，你能用清晰顺序讲述一次故障处理经历，并说明个人行动、结果和复盘。</p>
+    <div class="meta">档位：有项目经验 · 约 15 分钟 · 请选真实经历；没有经历可用练习情境。</div>
+  </header>
+  <details><summary>前置检查（可跳过）</summary><div><p>先回想一次你参与的问题排查。若暂时没有真实经历，可用下方的「订单接口超时」情境做练习。</p></div></details>
+  <section><h2>本节结构：把故事讲成可追问的证据</h2><div class="card"><ol class="steps">
+    <li><strong>情境：</strong>系统、影响范围和时间点是什么？</li><li><strong>判断：</strong>你最先怀疑什么，依据是什么？</li>
+    <li><strong>行动：</strong>你亲自做了哪些检查或改动？</li><li><strong>结果：</strong>用什么可核对的信号确认问题缓解？</li>
+    <li><strong>复盘：</strong>后来怎样降低同类风险？</li></ol>
+    <p class="small">这不是固定话术模板。重点是让听者分清背景、你的决策、结果证据与后续改进。</p>
+    <p><strong>为什么要分开讲？</strong>背景说明问题，判断展示你的推理，行动说明个人贡献，结果提供证据。</p>
+    <p><strong>不这样会怎样？</strong>如果只说「我们修好了」，听者无法判断你做了什么，也无法追问你的判断依据。</p></div>
+    <div class="quiz" data-qid="evidence"><p><strong>检查理解：以下哪种结果描述最容易被追问和核实？</strong></p>
+      <button class="opt" data-correct="false" data-why="这只是感受，没有说明观察窗口或数据来源。">服务很快就恢复了，用户也满意</button>
+      <button class="opt" data-correct="true" data-why="对：指标、比较范围和时间段都清楚，面试官可以追问数据怎么采集。">回滚后 10 分钟内，错误率从 18% 降到 1% 以下；我用监控面板确认</button>
+      <button class="opt" data-correct="false" data-why="「没有投诉」不能单独证明故障恢复，也没有交代检查渠道。">后来没人再提这件事</button>
+      <div class="explain" hidden>可核实的结果会交代观察指标和比较范围。数字必须来自真实记录；没有数据时，应明确说是估计或定性观察。</div>
+    </div>
+  </section>
+  <section><h2>练习：先写你的回答</h2><p class="prompt">「请讲一次你处理线上故障的经历。你如何判断原因？采取了什么行动？结果如何？」</p>
+    <div class="card"><label for="draft"><strong>先写 5 到 8 句，尽量包含你的判断依据和结果证据。</strong></label><textarea id="draft" placeholder="情境与影响……
+我先检查……因为……
+我采取的行动……
+结果与证据……
+复盘……"></textarea>
+      <div><button id="reveal" type="button">我写完了，展开示例与自评表</button> <button id="clear" type="button">重置练习</button></div>
+      <p class="small">草稿只保留在当前页面内存中；刷新页面会清空，不会上传。</p>
+      <div class="answer" id="answer" aria-live="polite"><p><strong>示例回答（练习情境，不是你必须照抄的经历）</strong></p>
+        <p>上周订单服务的错误率突然升高，结算请求开始超时。我先查看部署时间和依赖服务指标，发现故障紧跟一次数据库连接池配置变更，而且数据库本身没有明显负载异常。我和同事核对后先回滚配置，再观察错误率与延迟曲线。十分钟内错误率恢复到变更前水平，告警解除。复盘时我们补上连接池耗尽告警，并把配置变更加入灰度观察。</p>
+        <p><strong>自评 rubric：</strong>逐项检查回答中是否出现证据，不必追求和示例措辞相同。</p>
+        <table class="rubric"><thead><tr><th>维度</th><th>检查问题</th></tr></thead><tbody>
+          <tr><td>情境清楚</td><td>听者知道问题影响了什么，发生在什么时候吗？</td></tr><tr><td>推理可追问</td><td>你说明了为何优先检查这个原因吗？</td></tr>
+          <tr><td>行动具体</td><td>能区分你亲自做的事和团队整体做的事吗？</td></tr><tr><td>结果有依据</td><td>结果有指标、记录或明确的定性证据吗？</td></tr>
+          <tr><td>复盘有迁移</td><td>你说明了怎样减少同类问题再次发生吗？</td></tr></tbody></table>
+        <p class="small"><strong>反馈类型：开放评价 / 非自动评分。</strong>本页不会读取或打分你的草稿。请按 rubric 自评，或把回答带回 Agent，请它逐项指出证据和缺口。</p>
+      </div>
+    </div>
+  </section>
+  <section><h2>换一个情境再试</h2><p>把问题换成「一次你主动发现的性能瓶颈」：背景和行动都变了，但仍需说清判断依据、个人贡献、结果证据与复盘。只复述故障示例不算完成迁移练习。</p>
+    <p><strong>完成清单</strong></p><label class="check"><input type="checkbox">我先写了自己的回答，再看示例。</label><label class="check"><input type="checkbox">我的回答区分了团队结果与个人行动。</label><label class="check"><input type="checkbox">我给出了可核对的结果，或如实说明没有量化数据。</label><label class="check"><input type="checkbox">我能把结构迁移到另一个项目情境。</label>
+  </section>
+  <details><summary>来源与边界</summary><div><p>这是面试练习的结构化自评材料，不代表所有岗位都采用相同评价标准。示例中的数字纯属虚构的练习情境，不能挪用成个人经历。</p>
+    <p><strong>已检查：</strong>草稿须主动点击后才显示示例；草稿仅存在页面内存；没有外部请求；明确区分客观选择题与开放自评。</p>
+    <p><strong>未检查：</strong>没有真实面试官评价；不判断回答真实性、语气或岗位匹配度；尚未做真实浏览器和移动端人工验收。</p></div></details>
+  <footer><p>把回答连同目标岗位发回 Agent，可以请它按 rubric 追问，不要只问「回答得好吗？」</p></footer>
+</main><script>
+const reveal=document.getElementById('reveal'),answer=document.getElementById('answer'),draft=document.getElementById('draft');reveal.addEventListener('click',()=>{if(!draft.value.trim()){draft.focus();draft.setCustomValidity('先写几句回答，再看示例。');draft.reportValidity();draft.addEventListener('input',()=>draft.setCustomValidity(''),{once:true});return}answer.classList.add('visible');reveal.disabled=true});
+document.querySelectorAll('.quiz').forEach(q=>{const explanation=q.querySelector('.explain');q.querySelectorAll('.opt').forEach(button=>button.addEventListener('click',()=>{if(button.disabled)return;const correct=button.dataset.correct==='true';q.querySelectorAll('.opt').forEach(b=>b.disabled=true);button.style.borderColor=correct?'#356b43':'#a4432a';if(!correct){q.querySelectorAll('.opt').forEach(b=>{if(b.dataset.correct==='true')b.style.borderColor='#356b43'});const why=document.createElement('p');why.className='generated';why.textContent=button.dataset.why;q.insertBefore(why,explanation);explanation.hidden=false}else{const line=document.createElement('p');line.className='generated small';line.textContent='✓ '+button.dataset.why;q.appendChild(line)}}))});
+document.getElementById('clear').addEventListener('click',()=>{draft.value='';answer.classList.remove('visible');reveal.disabled=false;document.querySelectorAll('.quiz').forEach(q=>{q.querySelectorAll('.opt').forEach(b=>{b.disabled=false;b.style.borderColor=''});q.querySelectorAll('.generated').forEach(n=>n.remove());const ex=q.querySelector('.explain');if(ex)ex.hidden=true});draft.focus()});
+</script></body></html>
