@@ -136,13 +136,6 @@ node skills/knowvori/scripts/validate-lesson.mjs 你的课程.html
 
 它不会把「选择题答对」说成「已经掌握」，也不会把静态检查说成教学有效。
 
-## 已知局限
-
-- 18 项静态检查只查结构，关键词检测**会漏也会误判**，所以相关项只判 warn，最终仍要人工确认。
-- 查不出讲解是否准确、类比是否恰当、难度是否递进、数字是否真的算对；这些要靠执行页面 JS 和真实浏览器操作。
-- 3D 示例只在 headless 软件 WebGL 下跑过；Safari / Firefox、真机触控、低端 GPU、屏幕阅读器的完整流程尚未验证。
-- `npx skills add` 只在 Windows + Node 24 的本地目录来源实测；GitHub 远程来源和其他操作系统尚未验证。
-
 ## 适合谁
 
 - 想快速建立直觉的自学者
@@ -150,12 +143,6 @@ node skills/knowvori/scripts/validate-lesson.mjs 你的课程.html
 - 面试、考试、分享前想练「讲明白」的人
 
 **不适合**：需要完整课程体系、班级管理、自动批改开放题，或希望完全替代系统学习的人。
-
-## 设计参考
-
-交互范式参考 [Sort Playground](https://sort.umasort.top/)：可视化对象、动态过程、主动操作、即时反馈；不照搬它的排序主题或视觉风格。
-
-教学设计参考 ICAP、引导式发现、worked examples 等公开研究，具体引用与适用边界见 [`skills/knowvori/references/`](skills/knowvori/references/)。
 
 ## 不做的事
 
