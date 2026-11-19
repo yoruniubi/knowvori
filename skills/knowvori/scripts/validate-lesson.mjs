@@ -177,7 +177,22 @@ function check(html, file) {
     add('pass', '动画控制', '无自动推进动画，不适用');
   }
 
-  // ───────── 17. 交互反馈区（C8 闭环）─────────
+  // ───────── 17. 练习是否真的能作答（C5）─────────
+  // 只做启发式提示：检测到选项，但脚本里看不到任何绑定/判分逻辑时，
+  // 很可能是「摆了一排按钮但点了没反应」。复杂实现可能漏报，所以只 warn。
+  if (optCount > 0) {
+    const scripts = [...stripped.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((x) => x[1]).join('\n');
+    const hasQuizHandler = /querySelectorAll\s*\(\s*['"]\.(quiz|opt)|dataset\.correct|data-correct|closest\s*\(\s*['"]\.opt/i.test(scripts);
+    if (hasQuizHandler) {
+      add('pass', '练习可作答', '脚本中检测到选项绑定或判分逻辑');
+    } else {
+      add('warn', '练习可作答', '检测到选项，但脚本中未见绑定/判分逻辑——按钮可能点了没反应，请人工点一遍');
+    }
+  } else {
+    add('pass', '练习可作答', '无选项，不适用');
+  }
+
+  // ───────── 18. 交互反馈区（C8 闭环）─────────
   const hasFeedback = /<output\b|aria-live\s*=|role\s*=\s*["']status|class\s*=\s*["'][^"']*\b(out|result|output|status|feedback|answer|explain)\b/i.test(html);
   if (hasControl && !hasFeedback) {
     add('warn', '反馈区', '有可操作控件但未见结果容器（output / aria-live / .out / .result）——操作后用户看什么？');

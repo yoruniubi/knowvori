@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>学习率一大，为什么梯度下降会飞出去 · knowvori</title>
+<style>
+  :root{
+    color-scheme: light;
+    --paper:#f1eee5;
+    --surface:#fbf9f2;
+    --surface-2:#e9e6dc;
+    --ink:#16211b;
+    --soft:#5d6b62;
+    --line:#cbd4c8;
+    --grid:#d8ded3;
+    --accent:#157a5a;
+    --accent-soft:#dcefe6;
+    --amber:#a85c18;
+    --amber-soft:#f7e7cf;
+    --bad:#b23a2b;
+    --bad-soft:#f7dfda;
+    --shadow:0 1px 0 rgba(22,33,27,.08);
+    --sans:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    --mono:"Cascadia Code",Consolas,"SF Mono",monospace;
+    --scan:rgba(22,33,27,.035);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      color-scheme: dark;
+      --paper:#080d0b;
+      --surface:#0d1712;
+      --surface-2:#122019;
+      --ink:#d9ffe9;
+      --soft:#83a895;
+      --line:#244033;
+      --grid:#183326;
+      --accent:#67f5b6;
+      --accent-soft:#102b20;
+      --amber:#ffb454;
+      --amber-soft:#2d2110;
+      --bad:#ff7563;
+      --bad-soft:#321713;
+      --shadow:0 1px 0 rgba(0,0,0,.4);
+      --scan:rgba(103,245,182,.025);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100vh;
+    background:
+      repeating-linear-gradient(0deg,transparent 0 3px,var(--scan) 3px 4px),
+      radial-gradient(circle at 78% 0%,var(--accent-soft),transparent 38%),
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16.5px;
+    line-height:1.8;
+    padding:0 16px 72px;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:900px;margin:0 auto}
+  .eyebrow{
+    display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+    border:1px solid var(--line);background:var(--surface);
+    padding:4px 10px;margin-bottom:18px;
+  }
+  header.hero{padding:42px 0 24px;border-bottom:2px solid var(--ink)}
+  h1{
+    font-family:var(--mono);font-size:clamp(30px,6.2vw,52px);
+    line-height:1.1;letter-spacing:-.055em;margin:0 0 16px;font-weight:700;
+  }
+  h1 em{font-style:normal;color:var(--accent);position:relative;white-space:nowrap}
+  h1 em::after{
+    content:"";position:absolute;left:0;right:0;bottom:.02em;height:.18em;
+    background:var(--accent);opacity:.2;z-index:-1;
+  }
+  .promise{max-width:62ch;color:var(--soft);margin:0;font-size:16.5px;border-left:4px solid var(--accent);padding-left:14px}
+  .meta{font-family:var(--mono);font-size:11.5px;color:var(--soft);margin-top:18px;letter-spacing:.04em}
+  section.station{margin:48px 0}
+  .stn-no{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+  h2{font-family:var(--mono);font-size:clamp(21px,4vw,29px);line-height:1.25;letter-spacing:-.035em;margin:5px 0 16px;font-weight:700}
+  h3{font-size:17px;margin:24px 0 8px;font-weight:700}
+  p{margin:0 0 14px}
+  code{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);border:1px solid var(--line);padding:1px 5px;overflow-wrap:anywhere}
+  strong{font-weight:700}
+  .quiz{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent);padding:20px;margin:20px 0;box-shadow:var(--shadow)}
+  .quiz .stem{font-weight:700;margin-bottom:14px;line-height:1.65}
+  .quiz .qno{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--accent);border:1px solid var(--line);padding:2px 7px;margin-right:8px;vertical-align:2px}
+  .opt{
+    display:block;width:100%;text-align:left;margin:0 0 8px;padding:11px 14px;min-height:46px;
+    background:var(--paper);border:1px solid var(--line);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.55;cursor:pointer;
+    transition:border-color .12s,background .12s;
+  }
+  .opt:hover{border-color:var(--accent)}
+  .opt.right{background:var(--accent-soft);border-color:var(--accent)}
+  .opt.wrong{background:var(--bad-soft);border-color:var(--bad)}
+  .opt:disabled{opacity:.68;cursor:default}
+  .answer-check{margin-top:10px;font-size:14px;line-height:1.65}
+  .explain{margin-top:12px;padding:13px 15px;background:var(--accent-soft);border-left:3px solid var(--accent);font-size:14.5px;line-height:1.7}
+  .explain[hidden]{display:none}
+  .lab{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;margin:22px 0}
+  .panel{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+  .panel-head,.plot-head{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 12px;border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;
+    color:var(--soft);text-transform:uppercase;background:var(--surface-2);
+  }
+  .panel-head b{color:var(--accent);font-weight:700}
+  .controls{padding:15px 14px}
+  .ctl{margin-bottom:17px}
+  .ctl-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:3px;font-family:var(--mono);font-size:11px;color:var(--soft);letter-spacing:.04em}
+  .ctl-top output{color:var(--ink);font-size:15px;font-weight:700}
+  input[type=range]{width:100%;height:40px;margin:0;accent-color:var(--accent);cursor:pointer}
+  .buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:4px 0 17px}
+  .btn{
+    min-height:44px;padding:7px 10px;border:1px solid var(--ink);background:var(--surface);
+    color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:700;
+    letter-spacing:.02em;cursor:pointer;transition:background .12s,color .12s;
+  }
+  .btn:hover{background:var(--accent-soft)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.reset{grid-column:1 / -1;border-color:var(--line);color:var(--soft);background:transparent}
+  .btn.reset:hover{color:var(--ink)}
+  .readouts{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);border-left:1px solid var(--line)}
+  .ro{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:7px 9px;min-width:0}
+  .ro .k{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--soft);text-transform:uppercase}
+  .ro .v{display:block;font-family:var(--mono);font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .status{
+    margin-top:12px;padding:8px 10px;border:1px solid var(--line);
+    font-family:var(--mono);font-size:11.5px;line-height:1.55;background:var(--paper);
+  }
+  .status.good{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+  .status.warn{border-color:var(--amber);background:var(--amber-soft);color:var(--amber)}
+  .status.bad{border-color:var(--bad);background:var(--bad-soft);color:var(--bad)}
+  .calc{margin-top:9px;font-family:var(--mono);font-size:10.5px;line-height:1.6;color:var(--soft);overflow-wrap:anywhere}
+  .hint{font-size:11.5px;line-height:1.6;color:var(--soft);margin:12px 0 0}
+  .plot-wrap{min-width:0;display:flex;flex-direction:column}
+  #plot{display:block;width:100%;height:clamp(310px,41vw,410px);background:var(--surface)}
+  .plot-foot{
+    display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    padding:8px 12px;border-top:1px solid var(--line);background:var(--surface-2);
+    font-family:var(--mono);font-size:10px;color:var(--soft);letter-spacing:.03em;
+  }
+  .key{display:inline-flex;align-items:center;gap:5px}
+  .key i{display:inline-block;width:14px;height:2px;background:var(--accent)}
+  .key.tangent i{background:var(--amber)}
+  .key.target i{background:var(--soft);height:0;border-top:2px dashed var(--soft)}
+  .derive{margin:22px 0;border:1px solid var(--line);background:var(--surface)}
+  .derive div{padding:11px 15px;border-bottom:1px solid var(--line);font-size:15px;line-height:1.65}
+  .derive div:last-child{border-bottom:none}
+  .derive .tag{display:inline-block;min-width:58px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--accent)}
+  .derive .counter{background:var(--surface-2);color:var(--soft)}
+  .jargon{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--accent-soft);padding:13px 16px;margin:18px 0;font-size:14.5px}
+  .jargon .term{font-weight:700}
+  .margin-note{font-size:13px;color:var(--soft);border-top:1px solid var(--line);padding-top:12px;margin-top:20px}
+  .transfer{border-top:1px solid var(--line);padding-top:28px;margin-top:48px}
+  .footer{margin-top:44px;padding-top:16px;border-top:2px solid var(--ink);font-family:var(--mono);font-size:10.5px;line-height:1.75;color:var(--soft)}
+  .footer strong{color:var(--ink)}
+  @media (max-width:760px){
+    .lab{grid-template-columns:1fr}
+    #plot{height:330px}
+    .controls{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+    .ctl{grid-column:span 2}
+    .buttons{grid-column:1 / -1;grid-template-columns:1fr 1fr 1fr}
+    .btn.reset{grid-column:auto}
+    .readouts{grid-column:1 / -1}
+    .status,.calc,.hint{grid-column:1 / -1}
+  }
+  @media (max-width:520px){
+    body{font-size:16px;padding-left:12px;padding-right:12px}
+    .controls{display:block}
+    .buttons{grid-template-columns:1fr 1fr}
+    .btn.reset{grid-column:1 / -1}
+    .plot-foot{font-size:9px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none!important;animation:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">数值优化 / 梯度下降 / 动态实验室</div>
+    <h1>学习率一大，<br>为什么就<em>飞出去</em>？</h1>
+    <p class="promise">拖动参数，亲手把一个点推下抛物线。你会看到：学习率不是「越大越快」；超过 1，它会在谷底两侧越跳越远。</p>
+    <div class="meta">≈ 10 分钟 · 会看坐标图即可 · 不需要先学导数</div>
+  </header>
+
+  <section class="station">
+    <div class="stn-no">01 / 先押一个答案</div>
+    <h2>η = 1.2，会发生什么？</h2>
+    <div class="quiz">
+      <div class="stem"><span class="qno">预测</span>目标函数是 <code>f(x) = (x − 2)²</code>，从 <code>x = 0</code> 出发，学习率 <code>η = 1.2</code>。每一步都按梯度下降走，轨迹会怎样？</div>
+      <button class="opt" data-correct="false" data-why="如果 η 很小，确实会稳稳靠近。但 1.2 已经跨过了稳定边界，误差每步会被放大。">稳定地靠近 x = 2</button>
+      <button class="opt" data-correct="true" data-why="对：误差因子是 1 − 2η = −1.4，绝对值大于 1；每步误差乘 1.4 且换边，所以越跳越远。">在 x = 2 两侧来回，越跳越远</button>
+      <button class="opt" data-correct="false" data-why="一步到谷底需要恰好抵消误差，η = 1.2 会冲过头；而且冲过头后还会继续放大。">一步就跳到 x = 2</button>
+      <div class="explain" hidden>
+        把误差记作 <code>e = x − 2</code>。梯度是 <code>2(x − 2)</code>，更新后：<br>
+        <code>e′ = (1 − 2η)e</code>。代入 η = 1.2，得到 <code>e′ = −1.4e</code>。<br>
+        绝对值 1.4 &gt; 1，所以误差不会缩小，反而每步变成 1.4 倍，并且左右换边。
+      </div>
+    </div>
+  </section>
+
+  <section class="station">
+    <div class="stn-no">02 / 上手</div>
+    <h2>把点推下抛物线</h2>
+    <p>左边设起点和学习率，右边看轨迹。虚线空心点是「下一跳」的预演——先看它落在哪，再决定要不要走。</p>
+
+    <div class="lab">
+      <aside class="panel">
+        <div class="panel-head"><b>CONTROL</b><span>η / x₀</span></div>
+        <div class="controls">
+          <div class="ctl">
+            <div class="ctl-top"><label for="start">起点 x₀</label><output id="startOut" for="start">0.0</output></div>
+            <input id="start" type="range" min="-1" max="5" step="0.1" value="0">
+          </div>
+          <div class="ctl">
+            <div class="ctl-top"><label for="lr">学习率 η</label><output id="lrOut" for="lr">0.80</output></div>
+            <input id="lr" type="range" min="0.05" max="2" step="0.05" value="0.8">
+          </div>
+          <div class="buttons">
+            <button class="btn primary" id="step" type="button">走 1 步</button>
+            <button class="btn" id="run10" type="button">走 10 步</button>
+            <button class="btn reset" id="reset" type="button">重置轨迹</button>
+          </div>
+          <div class="readouts">
+            <div class="ro"><span class="k">STEP</span><span class="v" id="stepOut">0</span></div>
+            <div class="ro"><span class="k">x</span><span class="v" id="xOut">0.000</span></div>
+            <div class="ro"><span class="k">f(x)</span><span class="v" id="fOut">4.000</span></div>
+            <div class="ro"><span class="k">|x − 2|</span><span class="v" id="errOut">2.000</span></div>
+          </div>
+          <div class="status" id="status" role="status" aria-live="polite">等待出发：先设参数，再走一步。</div>
+          <div class="calc" id="calc"></div>
+          <p class="hint">调整起点或学习率会重新开始轨迹，避免把不同参数下的步子混在一起。</p>
+        </div>
+      </aside>
+
+      <div class="panel plot-wrap">
+        <div class="plot-head"><span>LOSS LANDSCAPE</span><span>f(x) = (x − 2)²</span></div>
+        <canvas id="plot" role="img" aria-label="抛物线损失曲线，以及梯度下降的轨迹点。"></canvas>
+        <div class="plot-foot">
+          <span class="key"><i></i>轨迹</span>
+          <span class="key tangent"><i></i>当前斜率</span>
+          <span class="key target"><i></i>谷底 x = 2</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="station">
+    <div class="stn-no">03 / 拆开看</div>
+    <h2>稳定边界为什么是 1？</h2>
+    <div class="derive">
+      <div><span class="tag">现象</span>目标在 <code>x = 2</code>。真正决定「会不会收敛」的，不是 x 本身，而是误差 <code>e = x − 2</code>。</div>
+      <div><span class="tag">关键</span><code>f′(x) = 2(x − 2)</code>，所以更新是 <code>x′ = x − 2η(x − 2)</code>。两边同时减 2，得到 <code>e′ = (1 − 2η)e</code>。</div>
+      <div><span class="tag">计算</span>要让误差每步缩小，必须有 <code>|1 − 2η| &lt; 1</code>；解出来就是 <code>0 &lt; η &lt; 1</code>。η = 0.8 时因子是 −0.6：每步缩到 60%，并换到另一侧。</div>
+      <div class="counter"><span class="tag">反例</span>η = 1.2 时因子是 −1.4，绝对值大于 1。这不是「走得更快」，而是每一步都把误差放大 40%；不踩刹车，很快就飞出画面。</div>
+    </div>
+    <p>这就是「学习率不是越大越好」的数学原因：它乘在梯度上，也乘在了误差的放大倍数上。山谷越陡（曲率越大），能承受的步长越小。</p>
+    <div class="jargon">
+      <span class="term">行话拆解：梯度下降。</span>梯度指向当前位置上升最快的方向；梯度下降就朝反方向走一小步。<strong>学习率</strong>决定这一小步有多长。步长太小，收敛慢；步长太大，直接跨过谷底，甚至越跨越远。
+    </div>
+    <h3>换一座更陡的山谷</h3>
+    <p>如果 <code>f(x) = 5(x − 2)²</code>，梯度变成 <code>10(x − 2)</code>，误差因子是 <code>1 − 10η</code>。稳定条件 <code>|1 − 10η| &lt; 1</code> 就变成 <code>0 &lt; η &lt; 0.2</code>——同样是二次函数，山谷陡了 5 倍，允许的学习率就小了 5 倍。</p>
+    <p class="margin-note">边界说明：这是一个二次函数的「显微镜」实验，用来看清步长与曲率的关系。真实神经网络是非凸的，还常用随机梯度、动量、Adam 等机制；这里的 η &lt; 1 不是通用公式，而是让你先看懂「为什么会冲过头」。</p>
+  </section>
+
+  <section class="station transfer">
+    <div class="stn-no">04 / 迁移</div>
+    <h2>换一座山谷，你还会判断吗？</h2>
+    <div class="quiz">
+      <div class="stem"><span class="qno">迁移题</span>把目标函数换成 <code>f(x) = 5(x − 2)²</code>，仍然从 <code>x = 0</code> 出发。学习率 η 在什么范围内，梯度下降会收敛到 <code>x = 2</code>？</div>
+      <button class="opt" data-correct="true" data-why="对：梯度是 10(x − 2)，误差因子是 1 − 10η；|1 − 10η| < 1 解得 0 < η < 0.2。">0 &lt; η &lt; 0.2</button>
+      <button class="opt" data-correct="false" data-why="η < 1 是原题 f(x)=(x−2)² 的边界。这里山谷陡了 5 倍，边界也要缩小 5 倍。">0 &lt; η &lt; 1</button>
+      <button class="opt" data-correct="false" data-why="5 是函数前面的系数，不是学习率的上限。把梯度 10(x−2) 代进误差因子再解不等式。">0 &lt; η &lt; 5</button>
+      <div class="explain" hidden>
+        更新式：<code>x′ = x − η · 10(x − 2)</code>，误差 <code>e′ = (1 − 10η)e</code>。<br>
+        收敛要求 <code>|1 − 10η| &lt; 1</code>，即 <code>−1 &lt; 1 − 10η &lt; 1</code>，解得 <code>0 &lt; η &lt; 0.2</code>。<br>
+        直观理解：山谷陡 5 倍，同样的步长会把你推得更远，所以必须把步长缩到原来的 1/5。
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <strong>反馈类型：客观校验。</strong>轨迹、f(x)、误差与「下一跳」都由 <code>x′ = x − η·2(x−2)</code> 实时计算；没有预设动画。曲线只画到 x ∈ [−1, 5]，飞出视野时会在边缘标出方向。<br>
+    示例课 · knowvori · 单文件、离线可用
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TARGET = 2;
+  var X_MIN = -1, X_MAX = 5, Y_MAX = 10.5;
+  var MAX_STEPS = 60;
+
+  var canvas = document.getElementById('plot');
+  var ctx = canvas.getContext('2d');
+  var startInput = document.getElementById('start');
+  var lrInput = document.getElementById('lr');
+  var startOut = document.getElementById('startOut');
+  var lrOut = document.getElementById('lrOut');
+  var stepBtn = document.getElementById('step');
+  var runBtn = document.getElementById('run10');
+  var resetBtn = document.getElementById('reset');
+  var stepOut = document.getElementById('stepOut');
+  var xOut = document.getElementById('xOut');
+  var fOut = document.getElementById('fOut');
+  var errOut = document.getElementById('errOut');
+  var statusEl = document.getElementById('status');
+  var calcEl = document.getElementById('calc');
+
+  var start = Number(startInput.value);
+  var lr = Number(lrInput.value);
+  var x = start;
+  var steps = 0;
+  var trail = [{ x: x, f: f(x) }];
+  var W = 600, H = 380;
+  var C = {};
+
+  function f(v) { return (v - TARGET) * (v - TARGET); }
+
+  function readColors() {
+    var cs = getComputedStyle(document.documentElement);
+    function v(name, fallback) { return (cs.getPropertyValue(name) || fallback).trim(); }
+    C = {
+      surface: v('--surface', '#fbf9f2'),
+      ink: v('--ink', '#16211b'),
+      soft: v('--soft', '#5d6b62'),
+      line: v('--line', '#cbd4c8'),
+      grid: v('--grid', '#d8ded3'),
+      accent: v('--accent', '#157a5a'),
+      accentSoft: v('--accent-soft', '#dcefe6'),
+      amber: v('--amber', '#a85c18'),
+      bad: v('--bad', '#b23a2b'),
+      paper: v('--paper', '#f1eee5')
+    };
+  }
+
+  function fmt(n) {
+    if (!isFinite(n)) return '∞';
+    if (Math.abs(n) >= 10000) return n.toExponential(2);
+    return n.toFixed(3);
+  }
+
+  function sx(v) {
+    return 46 + (v - X_MIN) / (X_MAX - X_MIN) * (W - 64);
+  }
+  function sy(v) {
+    var y = Math.max(0, Math.min(Y_MAX, v));
+    return 18 + (1 - y / Y_MAX) * (H - 54);
+  }
+
+  function resize() {
+    var rect = canvas.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(280, rect.width);
+    H = Math.max(240, rect.height);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    render();
+  }
+
+  function drawGrid() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = C.surface;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.lineWidth = 1;
+    ctx.font = '10px "Cascadia Code", Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    for (var gx = X_MIN; gx <= X_MAX + 0.001; gx += 1) {
+      var px = sx(gx);
+      ctx.strokeStyle = C.grid;
+      ctx.beginPath(); ctx.moveTo(px, 18); ctx.lineTo(px, H - 36); ctx.stroke();
+      ctx.fillStyle = C.soft;
+      ctx.fillText(String(gx), px, H - 30);
+    }
+
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (var gy = 0; gy <= Y_MAX; gy += 2) {
+      var py = sy(gy);
+      ctx.strokeStyle = C.grid;
+      ctx.beginPath(); ctx.moveTo(46, py); ctx.lineTo(W - 18, py); ctx.stroke();
+      ctx.fillStyle = C.soft;
+      ctx.fillText(String(gy), 39, py);
+    }
+
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath(); ctx.moveTo(46, H - 36); ctx.lineTo(W - 18, H - 36); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(46, 18); ctx.lineTo(46, H - 36); ctx.stroke();
+
+    ctx.fillStyle = C.soft;
+    ctx.textAlign = 'left';
+    ctx.font = '10px "Cascadia Code", Consolas, monospace';
+    ctx.fillText('x', W - 26, H - 49);
+    ctx.fillText('f(x)', 53, 21);
+  }
+
+  function drawTarget() {
+    var px = sx(TARGET);
+    ctx.save();
+    ctx.strokeStyle = C.soft;
+    ctx.lineWidth = 1.25;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath(); ctx.moveTo(px, 18); ctx.lineTo(px, H - 36); ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = C.soft;
+    ctx.font = '10px "Cascadia Code", Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('谷底 x=2', px, H - 40);
+  }
+
+  function drawCurve() {
+    ctx.beginPath();
+    for (var i = 0; i <= 240; i++) {
+      var v = X_MIN + (X_MAX - X_MIN) * i / 240;
+      var px = sx(v), py = sy(f(v));
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = C.accent;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.lineTo(sx(X_MAX), H - 36);
+    ctx.lineTo(sx(X_MIN), H - 36);
+    ctx.closePath();
+    ctx.fillStyle = C.accentSoft;
+    ctx.globalAlpha = .55;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  function repoPoint(v) {
+    return { x: Math.max(X_MIN, Math.min(X_MAX, v)), off: v < X_MIN ? -1 : v > X_MAX ? 1 : 0 };
+  }
+
+  function drawTrail() {
+    if (!trail.length) return;
+    ctx.lineWidth = 1.6;
+    for (var i = 1; i < trail.length; i++) {
+      var a = repoPoint(trail[i - 1].x);
+      var b = repoPoint(trail[i].x);
+      ctx.strokeStyle = C.accent;
+      ctx.globalAlpha = Math.max(.15, i / trail.length);
+      ctx.beginPath(); ctx.moveTo(sx(a.x), sy(f(a.x))); ctx.lineTo(sx(b.x), sy(f(b.x))); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    for (var j = 0; j < trail.length; j++) {
+      var p = repoPoint(trail[j].x);
+      ctx.beginPath();
+      ctx.arc(sx(p.x), sy(f(p.x)), j === trail.length - 1 ? 5 : 2.6, 0, Math.PI * 2);
+      ctx.fillStyle = j === trail.length - 1 ? C.accent : C.surface;
+      ctx.fill();
+      ctx.strokeStyle = C.accent;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      if (p.off) {
+        ctx.fillStyle = C.bad;
+        ctx.font = 'bold 11px "Cascadia Code", Consolas, monospace';
+        ctx.textAlign = p.off > 0 ? 'right' : 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.off > 0 ? '飞出 →' : '← 飞出', sx(p.x) + (p.off > 0 ? -8 : 8), sy(f(p.x)) - 12);
+      }
+    }
+  }
+
+  function drawCurrent() {
+    var p = repoPoint(x);
+    var px = sx(p.x), py = sy(f(p.x));
+
+    // Current slope / tangent
+    var slope = 2 * (x - TARGET);
+    var d = 0.55;
+    var x1 = x - d, x2 = x + d;
+    var y1 = f(x) - slope * d, y2 = f(x) + slope * d;
+    ctx.save();
+    ctx.strokeStyle = C.amber;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(sx(Math.max(X_MIN, x1)), sy(y1));
+    ctx.lineTo(sx(Math.min(X_MAX, x2)), sy(y2));
+    ctx.stroke();
+    ctx.restore();
+
+    // Vertical guide to x axis
+    ctx.save();
+    ctx.strokeStyle = C.soft;
+    ctx.globalAlpha = .45;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, H - 36); ctx.stroke();
+    ctx.restore();
+
+    // Current point
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.fillStyle = C.accent;
+    ctx.fill();
+    ctx.strokeStyle = C.surface;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = C.ink;
+    ctx.font = 'bold 11px "Cascadia Code", Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('x' + (steps ? 'ₜ' : '₀') + '=' + fmt(x), Math.min(W - 90, px + 9), Math.max(28, py - 8));
+
+    // Next-step preview
+    var next = x - lr * 2 * (x - TARGET);
+    var q = repoPoint(next);
+    var qx = sx(q.x), qy = sy(f(q.x));
+    ctx.save();
+    ctx.strokeStyle = C.amber;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(qx, qy); ctx.stroke();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(qx, qy, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = C.surface;
+    ctx.fill();
+    ctx.strokeStyle = C.amber;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    if (q.off) {
+      ctx.fillStyle = C.amber;
+      ctx.font = 'bold 10px "Cascadia Code", Consolas, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('下一跳出界', W - 20, qy - 10);
+    }
+  }
+
+  function statusFor() {
+    if (steps === 0) return { cls: '', text: '等待出发：先设参数，再走一步。' };
+    var e = x - TARGET;
+    var factor = 1 - 2 * lr;
+    if (Math.abs(e) < 1e-4) return { cls: 'good', text: '到达谷底：x = 2，误差接近 0。' };
+    if (lr > 1 + 1e-9) return { cls: 'bad', text: '发散：误差每步 ×' + Math.abs(factor).toFixed(2) + '，越跳越远。' };
+    if (Math.abs(lr - 1) < 1e-9) return { cls: 'warn', text: '临界：误差大小不变，只左右换边，永远停不下来。' };
+    if (Math.abs(e) < 0.01) return { cls: 'good', text: '已收敛到谷底附近：|x − 2| < 0.01。' };
+    return { cls: 'good', text: '收敛中：误差每步 ×' + Math.abs(factor).toFixed(2) + (factor < 0 ? '，并换边。' : '。') };
+  }
+
+  function updateUI() {
+    var next = x - lr * 2 * (x - TARGET);
+    stepOut.textContent = String(steps);
+    xOut.textContent = fmt(x);
+    fOut.textContent = fmt(f(x));
+    errOut.textContent = fmt(Math.abs(x - TARGET));
+    startOut.textContent = start.toFixed(1);
+    lrOut.textContent = lr.toFixed(2);
+    calcEl.textContent = '下一跳：' + fmt(x) + ' − ' + lr.toFixed(2) + '×2×(' + fmt(x) + '−2) = ' + fmt(next);
+
+    var s = statusFor();
+    statusEl.className = 'status' + (s.cls ? ' ' + s.cls : '');
+    statusEl.textContent = s.text;
+
+    var atEnd = steps >= MAX_STEPS;
+    stepBtn.disabled = atEnd;
+    runBtn.disabled = atEnd;
+  }
+
+  function render() {
+    drawGrid();
+    drawCurve();
+    drawTarget();
+    drawTrail();
+    drawCurrent();
+    updateUI();
+  }
+
+  function reset() {
+    start = Number(startInput.value);
+    lr = Number(lrInput.value);
+    x = start;
+    steps = 0;
+    trail = [{ x: x, f: f(x) }];
+    render();
+  }
+
+  function doStep() {
+    if (steps >= MAX_STEPS) return;
+    x = x - lr * 2 * (x - TARGET);
+    steps += 1;
+    trail.push({ x: x, f: f(x) });
+  }
+
+  stepBtn.addEventListener('click', function () {
+    doStep();
+    render();
+  });
+
+  runBtn.addEventListener('click', function () {
+    for (var i = 0; i < 10 && steps < MAX_STEPS; i++) doStep();
+    render();
+  });
+
+  resetBtn.addEventListener('click', reset);
+
+  startInput.addEventListener('input', reset);
+  lrInput.addEventListener('input', reset);
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(resize).observe(canvas);
+  } else {
+    window.addEventListener('resize', resize);
+  }
+
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', function () { readColors(); render(); });
+    else if (mq.addListener) mq.addListener(function () { readColors(); render(); });
+  }
+
+
+  // 选择题：先作答，再展开解释；答错时标出正确项。
+  document.querySelectorAll('.quiz').forEach(function (quiz) {
+    var opts = quiz.querySelectorAll('.opt');
+    var explain = quiz.querySelector('.explain');
+    opts.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        var correct = btn.dataset.correct === 'true';
+        opts.forEach(function (o) { o.disabled = true; });
+        btn.classList.add(correct ? 'right' : 'wrong');
+        var line = document.createElement('div');
+        line.className = 'answer-check';
+        if (correct) {
+          line.textContent = '✓ ' + (btn.dataset.why || '答对了');
+          quiz.appendChild(line);
+          if (explain) explain.hidden = true;
+        } else {
+          line.style.color = 'var(--bad, var(--pink))';
+          line.textContent = btn.dataset.why || '这个选项对应一个常见误解。';
+          if (explain) {
+            explain.hidden = false;
+            quiz.insertBefore(line, explain);
+          } else {
+            quiz.appendChild(line);
+          }
+          opts.forEach(function (o) {
+            if (o.dataset.correct === 'true') o.classList.add('right');
+          });
+        }
+      });
+    });
+  });
+
+  readColors();
+  resize();
+})();
+</script>
+</body>
+</html>

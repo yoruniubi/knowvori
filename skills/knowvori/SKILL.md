@@ -239,8 +239,8 @@ node scripts/validate-lesson.mjs <课程.html>
 | `references/assessment-guidelines.md` | 四档评分 rubric、Barton 原则、三类反馈可信度、干扰项库 |
 | `references/quality-checklist.md` | 五维验收表 + 真实交互验收表 + 交付清单 |
 | `assets/lesson-template.html` | 单文件模板，含真算数演示 / 答后展开自测 / 完成清单三个组件 |
-| `scripts/validate-lesson.mjs` | 静态断言：零外链、答后展开、迁移题、干扰项数量 |
-| `examples/` | 合格产物样例，兼回归测试 |
+| `scripts/validate-lesson.mjs` | 静态断言：零外链、答后展开、迁移题、干扰项数量、练习是否可作答 |
+| `examples/` | 7 份不同视觉方向的合格产物，兼回归测试 |
 
 ---
 
