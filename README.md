@@ -1,5 +1,8 @@
 # knowvori · 交互式学习 Skill
-<img src = "docs/logo/logo.png" width = "270"></img>
+
+<p align="center">
+  <img src="docs/logo/logo.png" width="400" alt="knowvori logo">
+</p>
 
 > **说出你想学什么，拿到一节能动手探索、通过练习检查理解的交互课程。**
 
