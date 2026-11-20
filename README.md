@@ -4,6 +4,19 @@
   <img src="docs/logo/logo.png" width="400" alt="knowvori logo">
 </p>
 
+<p align="center">
+  <a href="https://github.com/yoruniubi/knowvori/stargazers"><img src="https://img.shields.io/github/stars/yoruniubi/knowvori?style=flat-square&logo=github&label=Star&color=e0a80f" alt="GitHub stars"></a>
+  <a href="https://github.com/yoruniubi/knowvori/blob/main/LICENSE"><img src="https://img.shields.io/github/license/yoruniubi/knowvori?style=flat-square&color=22a06b" alt="MIT License"></a>
+  <a href="https://github.com/yoruniubi/knowvori/commits/main"><img src="https://img.shields.io/github/last-commit/yoruniubi/knowvori?style=flat-square&label=last%20commit" alt="Last commit"></a>
+</p>
+
+<p align="center">
+  <a href="#30-秒开始"><img src="https://img.shields.io/badge/npx_skills_add-yoruniubi%2Fknowvori-2ea44f?style=flat-square" alt="npx skills add yoruniubi/knowvori"></a>
+  <img src="https://img.shields.io/badge/%E5%8D%95%E6%96%87%E4%BB%B6-HTML-f97316?style=flat-square" alt="单文件 HTML 交付">
+  <img src="https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF-%E9%9B%B6%E5%A4%96%E9%83%A8%E8%AF%B7%E6%B1%82-0ea5e9?style=flat-square" alt="离线可用，零外部请求">
+  <img src="https://img.shields.io/badge/7_%E4%BB%BD%E7%A4%BA%E4%BE%8B%E8%AF%BE%E7%A8%8B-8b5cf6?style=flat-square" alt="7 份示例课程">
+</p>
+
 > **说出你想学什么，拿到一节能动手探索、通过练习检查理解的交互课程。**
 
 一节课不是一篇文章，也不是一张漂亮网页，而是一个**围绕具体学习目标设计的微型学习环境**：能操作、能预测、能看见自己算错在哪、能在一道没见过的新题上把学到的东西用出来。
