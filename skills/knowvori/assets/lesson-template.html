@@ -98,6 +98,27 @@
   }
   .derive .counter{background:var(--surface-2);color:var(--ink-soft)}
 
+  /* ---------- 自动回放（见 references/interaction-patterns.md 第 8 节）----------
+     用 assets/replay-engine.js 的内联副本驱动。配色走课程变量，深浅主题自动跟随。 */
+  .replay{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:18px 0;padding:9px 11px;
+    border:1px dashed var(--line);background:var(--surface,var(--paper));
+  }
+  .replay-btn{
+    min-height:40px;padding:6px 14px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);cursor:pointer;
+    font-family:var(--mono,var(--sans,system-ui));font-size:12.5px;font-weight:700;
+    transition:background .15s,border-color .15s,color .15s;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .replay-btn:hover{border-color:var(--accent);background:var(--accent-soft,var(--soft))}
+  .replay-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  .replay-note{flex:1 1 220px;min-width:0;font-size:12.5px;line-height:1.6;color:var(--soft,var(--muted))}
+  .replay-bar{flex:0 0 100%;height:2px;background:var(--line);overflow:hidden}
+  .replay-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  @media (prefers-reduced-motion: reduce){.replay-bar i{transition:none}}
+
   /* ---------- 真算演示容器（I3：禁止假动画） ---------- */
   .demo{
     border:1px solid var(--line);border-radius:var(--radius);
@@ -251,6 +272,13 @@
     <div><span class="tag">为什么</span>因为 ［A → B → C］。</div>
     <div><span class="tag">所以</span>于是就有了 ［Y 这个做法］。</div>
     <div class="counter"><span class="tag">不这样</span>假如不这么做，会变成 ［Z，通常更糟］。</div>
+  </div>
+
+  <!-- 自动回放：把标准操作演一遍。不是视频，是照着做（见第 8 节） -->
+  <div class="replay" id="kvReplay">
+    <button class="replay-btn" type="button" data-replay-btn aria-pressed="false">▶ 看一遍演示</button>
+    <span class="replay-note" data-replay-note aria-live="polite"></span>
+    <div class="replay-bar" data-replay-bar aria-hidden="true"><i></i></div>
   </div>
 
   <!-- 真算演示（C6：禁止写死数字） -->
@@ -439,153 +467,251 @@
 </div>
 
 <script>
-'use strict';
+/* ─── KVReplay ▸ v1（与 assets/replay-engine.js 同源）─── */
+/**
+ * knowvori · 自动回放引擎
+ *
+ * 这不是视频。它把「标准操作」照着做一遍：拖真的滑块、按真的按钮，
+ * 数字仍然是页面自己算的。所以演示永远不会和真操作脱节。
+ *
+ * ── 为什么内联 ────────────────────────────────────────────────
+ * 课程是单文件交付，不能 import。这段代码要原样拷进每个课程的
+ * script 里。validate-lesson.mjs 第 19 项会检查各课程的
+ * `KVReplay ▸ v1` 标记是否一致，改这里就要同步到那 7 个文件。
+ *
+ * ── 平滑是怎么做到的 ──────────────────────────────────────────
+ * 回放不直接给 input.value 赋值，而是每帧写一点、每帧派发 input
+ * 事件，页面自己会跟着重算重绘。这样拖动是连续的，不是跳变。
+ * 缓动用 easeInOutCubic，起步和收尾都软。
+ */
 
-/* ═══════════════════════════════════════════════════════════
-   1. 真算演示（C6：所有数字必须算出来，不许写死）
-   ═══════════════════════════════════════════════════════════ */
-const slider = document.getElementById('demoSlider');
-const demoVal = document.getElementById('demoVal');
-const demoOut = document.getElementById('demoOut');
+window.KVReplay = (function () {
+  'use strict';
 
-// 把真实计算放在这里，改参数就变。用户乱填也必须给出对的结果。
-function computeDemo(x) {
-  // ［替换成真实公式］
-  return { label: '［结果名］', value: x * 2 };
-}
+  // 系统设了「减少动态效果」时，不粗暴跳变，只是把时长压到 1/3
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var SPEED = reduce ? 0.34 : 1;
 
-function renderDemo() {
-  if (!slider) return;
-  const x = Number(slider.value);
-  if (demoVal) demoVal.textContent = x;
-  const r = computeDemo(x);
-  let text = r.label + ' = ' + r.value;
-  // 边界提醒：极端值才是理解的钥匙
-  if (x === Number(slider.min)) text += '\n← 这是最小值，注意它和中间值的差别';
-  if (x === Number(slider.max)) text += '\n← 这是最大值，注意它和中间值的差别';
-  if (demoOut) demoOut.textContent = text;
-}
-if (slider) {
-  slider.addEventListener('input', renderDemo);
-  renderDemo();
-}
+  function ease(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
 
-/* ═══════════════════════════════════════════════════════════
-   2. 重置：所有交互必须能回到初始状态
-      否则用户试错一次就废了，不敢乱试 = 学不到东西
-   ═══════════════════════════════════════════════════════════ */
-const resetBtn = document.getElementById('demoReset');
-if (resetBtn) {
-  resetBtn.addEventListener('click', () => {
-    if (slider) {
-      slider.value = slider.defaultValue;
-      renderDemo();
-    }
-    // 清掉自测状态（答案重新藏起来）
-    document.querySelectorAll('.quiz').forEach(function (q) {
-      q.querySelectorAll('.opt').forEach(function (o) {
-        o.disabled = false;
-        o.classList.remove('right', 'wrong');
-      });
-      const ex = q.querySelector('.explain');
-      if (ex) ex.hidden = true;
-      q.querySelectorAll('.answer-check').forEach(function (n) { n.remove(); });
-    });
-    // 清掉填空状态
-    document.querySelectorAll('.guided-step').forEach(function (s) {
-      s.classList.remove('done');
-      const i = s.querySelector('input');
-      if (i) { i.value = ''; i.title = ''; }
-    });
-    document.querySelectorAll('.buggy-step').forEach(function (s) {
-      s.classList.remove('fixed');
-    });
-  });
-}
+  function raf(fn) { return window.requestAnimationFrame(fn); }
+  function caf(id) { window.cancelAnimationFrame(id); }
 
-/* ═══════════════════════════════════════════════════════════
-   3. Guided 填空校验（零基础档）
-      错了只给方向，不给答案
-   ═══════════════════════════════════════════════════════════ */
-document.querySelectorAll('.guided-step input[data-answer]').forEach(function (input) {
-  const step = input.closest('.guided-step');
-  const answer = input.dataset.answer;
-  const hint = input.dataset.hint || '';
-  input.addEventListener('input', function () {
-    const ok = input.value.trim() === answer;
-    step.classList.toggle('done', ok);
-    input.title = (!ok && input.value.trim()) ? hint : '';
-  });
-});
+  function fire(el, type) {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  }
 
-/* ═══════════════════════════════════════════════════════════
-   4. Buggy 找错（有基础档）
-   ═══════════════════════════════════════════════════════════ */
-document.querySelectorAll('.buggy-step[data-buggy="true"]').forEach(function (step) {
-  step.addEventListener('click', function () {
-    step.classList.toggle('fixed');
-  });
-});
+  function pick(sel) {
+    return typeof sel === 'string' ? document.querySelector(sel) : sel;
+  }
 
-/* ═══════════════════════════════════════════════════════════
-   5. 自测：答完才展开（C5 / I4）
-      答对 → 一行确认；答错 → 指出「你可能是这样想的」再展开要点
-   ═══════════════════════════════════════════════════════════ */
-document.querySelectorAll('.quiz').forEach(function (quiz) {
-  const opts = quiz.querySelectorAll('.opt');
-  const explain = quiz.querySelector('.explain');
+  function create(opt) {
+    var root = opt.root;
+    if (!root) return null;
 
-  opts.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      if (btn.disabled) return;
-      const correct = btn.dataset.correct === 'true';
+    var btn = root.querySelector('[data-replay-btn]');
+    var note = root.querySelector('[data-replay-note]');
+    var bar = root.querySelector('[data-replay-bar]');
+    var fill = bar && bar.firstElementChild;
+    var steps = opt.steps || [];
+    var cancels = [];          // 正在跑的所有缓动，暂停时全部掐断
+    var running = false;
+    var stopped = false;
+    var at = 0;
 
-      // 答对不展开完整要点（只确认）；答错才展开
-      if (explain) explain.hidden = correct;
-
-      opts.forEach(function (o) { o.disabled = true; });
-      btn.classList.add(correct ? 'right' : 'wrong');
-
-      const line = document.createElement('div');
-      line.className = 'answer-check';
-
-      if (correct) {
-        line.textContent = '✓ ' + (btn.dataset.why || '答对了');
-        quiz.appendChild(line);
-      } else {
-        line.style.color = 'var(--accent)';
-        line.textContent = btn.dataset.why || '这个选项对应一个常见误解。';
-        if (explain) quiz.insertBefore(line, explain);
-        else quiz.appendChild(line);
-        // 同时标出正确项，让用户能对照
-        opts.forEach(function (o) {
-          if (o.dataset.correct === 'true') o.classList.add('right');
-        });
+    function abortAll() {
+      while (cancels.length) {
+        try { cancels.pop()(); } catch (e) { /* 已经结束的忽略 */ }
       }
-    });
-  });
-});
-
-/* ═══════════════════════════════════════════════════════════
-   6. 复制代码块
-   ═══════════════════════════════════════════════════════════ */
-const snippet = document.getElementById('snippet');
-if (snippet) {
-  const btn = document.createElement('button');
-  btn.textContent = '复制代码';
-  btn.className = 'btn-reset';
-  btn.style.marginLeft = '0';
-  btn.addEventListener('click', async function () {
-    try {
-      await navigator.clipboard.writeText(snippet.textContent);
-      btn.textContent = '已复制';
-      setTimeout(function () { btn.textContent = '复制代码'; }, 1400);
-    } catch (e) {
-      btn.textContent = '请手动选中复制';
     }
+
+    function say(t) { if (note && t) note.textContent = t; }
+
+    function progress() {
+      if (!fill) return;
+      fill.style.width = Math.round((at / Math.max(1, steps.length)) * 100) + '%';
+    }
+
+    function wait(ms) {
+      return new Promise(function (done) {
+        var id = setTimeout(done, Math.max(0, ms * SPEED));
+        cancels.push(function () { clearTimeout(id); done(); });
+      });
+    }
+
+    /** 逐帧回调。fn(缓动后的进度, 线性进度) */
+    function tween(ms, fn) {
+      var dur = Math.max(1, ms * SPEED);
+      var t0 = null, id = 0, dead = false;
+      return new Promise(function (done) {
+        function tick(ts) {
+          if (dead) return done();
+          if (t0 === null) t0 = ts;
+          var p = Math.min(1, (ts - t0) / dur);
+          try { fn(ease(p), p); } catch (e) { dead = true; return done(); }
+          if (p < 1) id = raf(tick); else done();
+        }
+        id = raf(tick);
+        cancels.push(function () { dead = true; caf(id); done(); });
+      });
+    }
+
+    /**
+     * 平滑拖动滑块 / 写值。
+     * 每帧都派发 input，页面才会跟着重算 —— 少了这一步，动画在跑，
+     * 但页面纹丝不动（这是最典型的「录出来是一张静止图」的原因）。
+     */
+    function slide(sel, to, ms) {
+      var el = pick(sel);
+      if (!el) return Promise.resolve();
+      var from = Number(el.value);
+      to = Number(to);
+      if (!isFinite(to) || from === to) return Promise.resolve();
+      return tween(ms == null ? 620 : ms, function (e) {
+        el.value = String(from + (to - from) * e);
+        fire(el, 'input');
+      }).then(function () {
+        el.value = String(to);
+        fire(el, 'input');
+        fire(el, 'change');
+      });
+    }
+
+    function click(sel) {
+      var el = pick(sel);
+      if (el) el.click();
+    }
+
+    function stop(msg) {
+      running = false;
+      stopped = true;
+      abortAll();
+      if (btn) {
+        btn.textContent = '▶ ' + (opt.label || '看一遍演示');
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      if (fill) fill.style.width = '0%';
+      if (msg) say(msg);
+    }
+
+    var api = {
+      say: say, wait: wait, tween: tween, slide: slide, click: click,
+      el: pick, fire: fire,
+      /** 逐帧打字，让文字是「写出来」的而不是整段蹦出来 */
+      type: function (sel, text, ms) {
+        var el = pick(sel);
+        if (!el) return Promise.resolve();
+        var base = el.value || '';
+        var n = text.length;
+        return tween(ms == null ? 1200 : ms, function (e) {
+          el.value = base + text.slice(0, Math.round(n * e));
+          fire(el, 'input');
+        }).then(function () {
+          el.value = base + text;
+          fire(el, 'input');
+        });
+      },
+      /** 读二元查找那类页面的当前状态，供文案使用（页面没有该结构时返回空串） */
+      state: function () {
+        if (typeof opt.state === 'function') return opt.state();
+        return '';
+      },
+      setNow: function (sel, v) {
+        var el = pick(sel);
+        if (!el) return;
+        el.value = String(v);
+        fire(el, 'input');
+        fire(el, 'change');
+      }
+    };
+
+    async function run() {
+      for (at = 0; at < steps.length; at++) {
+        if (stopped) return;
+        progress();
+        try {
+          await steps[at](api);
+        } catch (e) {
+          stop('演示中断：' + e.message);
+          return;
+        }
+      }
+      if (stopped) return;
+      // 最后一步的旁白要留得住。直接 stop() 会用结束语把它盖掉，
+      // 用户几乎看不到那句收尾的话（最该读的往往就是它）。
+      await wait(1600);
+      if (stopped) return;
+      stop(opt.done || '演示结束。现在轮到你动手了 —— 同样的操作，数字一样是现算的。');
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (running) { stop('已暂停。再点一次从头演示。'); return; }
+        running = true;
+        stopped = false;
+        at = 0;
+        if (fill) fill.style.width = '0%';
+        btn.textContent = '⏸ 暂停';
+        btn.setAttribute('aria-pressed', 'true');
+        if (opt.onStart) opt.onStart();
+        run();
+      });
+    }
+
+    // 用户一动手，立刻交还控制权。演示不该跟用户抢方向盘。
+    //
+    // 必须挂在 document 上，不能挂 root：用户真正会去碰的是下面那块
+    // 画布 / 滑块，它们不在 .replay 里，事件冒不到 root —— 挂在 root
+    // 上等于「只有点演示条本身才会停」，用户一动控制权纹丝不动。
+    ['pointerdown', 'keydown'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (btn && btn.contains(e.target)) return;
+        if (running) stop('你接手了，演示停在这一步。');
+      }, true);
+    });
+
+    return api;
+  }
+
+  return { create: create, reduce: reduce };
+})();
+
+/* ─── KVReplaySteps ▸ lesson-template.html ▸ v1 ───────────────────
+   演示脚本：把这一课的标准操作照着做一遍。改 steps 就能改演示。
+   r.slide 逐帧缓动拖滑块（会自动补发 input/change）
+   r.click 按真按钮    r.type 逐字打字    r.wait 停一下    r.say 说一句
+   ──────────────────────────────────────────────────────────────── */
+(function () {
+  var root = document.getElementById('kvReplay');
+  if (!root || !window.KVReplay) return;
+
+  KVReplay.create({
+    root: root,
+    label: '看一遍演示',
+    done: '演示结束。现在轮到你动手 —— 同样的操作，数字一样是现算的。',
+    onStart: function () {
+      document.getElementById('demoReset').click();
+    },
+    steps: [
+      async (r) => {
+        r.say('［第一句：先说现在要动哪个参数、为什么。］');
+        await r.slide('#demoSlider', 40, 900);
+        await r.wait(600);
+      },
+      async (r) => {
+        r.say('［第二句：指着页面上的数说话，别背台词。］');
+        await r.slide('#demoSlider', 90, 900);
+        await r.wait(800);
+      },
+      async (r) => {
+        r.say('［最后一句：指出边界或反例，把结论收住。］');
+      }
+    ]
   });
-  snippet.parentElement.after(btn);
-}
+})();
+
 </script>
 </body>
 </html>

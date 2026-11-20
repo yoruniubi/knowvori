@@ -1,0 +1,13 @@
+{
+  "name": "@knowvori/audit-deps",
+  "version": "0.2.0",
+  "private": true,
+  "description": "只为 skills/knowvori/scripts/audit-page.mjs 提供 playwright-core。审计脚本没有自己的 package.json，靠这个目录找到浏览器驱动。",
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "^1.52.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

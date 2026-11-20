@@ -178,8 +178,11 @@ lesson/
 先跑脚本，再过人工清单：
 
 ```bash
-node scripts/validate-lesson.mjs <课程.html>
+node scripts/validate-lesson.mjs <课程.html>     # 静态断言，18 项
+node scripts/audit-page.mjs <课程.html>          # 真浏览器审计，6 项
 ```
+
+静态跑完先过一遍；再跑浏览器审计，它会真的点开练习、真的在 320px 下排版。两个分开是因为静态检查不需要浏览器，而浏览器审计需要 Playwright。校验项见 `references/audit-page.md`。
 
 - [ ] 目标可验证，且与练习对应（C1）
 - [ ] 已做教学 / 交互 / 体验三类自评各至少 1 轮（C2）
@@ -221,7 +224,7 @@ node scripts/validate-lesson.mjs <课程.html>
 - ❌ 假动画 / 写死的假数字 / 摆拍的热力图
 - ❌ 自测题直接展示答案
 - ❌ 引 CDN / 框架 / 在线字体 / 外链图
-- ❌ 只有自动播放、不能暂停 / 重置的演示
+- ❌ 只能自动播放、用户插不上手的演示（本仓的 `▶ 看一遍演示` 可随时点停、随时接管，不算）
 - ❌ 为视觉效果强行引入 3D 或额外依赖
 - ❌ 一页塞完所有细节
 - ❌ 面向行家补基础铺垫
@@ -239,7 +242,10 @@ node scripts/validate-lesson.mjs <课程.html>
 | `references/assessment-guidelines.md` | 四档评分 rubric、Barton 原则、三类反馈可信度、干扰项库 |
 | `references/quality-checklist.md` | 五维验收表 + 真实交互验收表 + 交付清单 |
 | `assets/lesson-template.html` | 单文件模板，含真算数演示 / 答后展开自测 / 完成清单三个组件 |
-| `scripts/validate-lesson.mjs` | 静态断言：零外链、答后展开、迁移题、干扰项数量、练习是否可作答 |
+| `assets/replay-engine.js` | 自动回放引擎，内联进课程；逐帧缓动、可打断、尊重减少动效偏好 |
+| `scripts/validate-lesson.mjs` | 静态断言（19 项）：零外链、答后展开、迁移题、干扰项数量、练习可作答、回放标记齐全且顺序正确 |
+| `scripts/audit-page.mjs` | 浏览器审计（7 项）：运行时报错、零外部请求、横向溢出、文字裁切、深色对比度、练习真能点、自动回放真能跑完 |
+| `references/audit-page.md` | 审计工具说明，含它实际抓到过的 bug |
 | `examples/` | 7 份不同视觉方向的合格产物，兼回归测试 |
 
 ---

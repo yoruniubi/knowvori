@@ -213,6 +213,27 @@
   @media (prefers-reduced-motion: reduce){
     *{transition:none!important;animation:none!important}
   }
+
+  /* ── 自动回放（由 tools/inject-replay.mjs 注入，勿手改）──────────
+     配色全部走课程自己的 CSS 变量，深色主题自动跟随。 */
+  .replay{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:18px 0;padding:9px 11px;
+    border:1px dashed var(--line);background:var(--surface,var(--paper));
+  }
+  .replay-btn{
+    min-height:40px;padding:6px 14px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);cursor:pointer;
+    font-family:var(--mono,var(--sans,system-ui));font-size:12.5px;font-weight:700;
+    letter-spacing:.02em;transition:background .15s,border-color .15s,color .15s;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .replay-btn:hover{border-color:var(--accent);background:var(--accent-soft,var(--soft))}
+  .replay-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  .replay-note{flex:1 1 220px;min-width:0;font-size:12.5px;line-height:1.6;color:var(--soft,var(--muted))}
+  .replay-bar{flex:0 0 100%;height:2px;background:var(--line);overflow:hidden}
+  .replay-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  @media (prefers-reduced-motion: reduce){.replay-bar i{transition:none}}
 </style>
 </head>
 <body>
@@ -244,7 +265,13 @@
     <h2>数字侦探事务所</h2>
     <p>目标数字已经藏好。你每次报一个数，事务所只回答「大了」「小了」或「猜中」。试试看，你能不能比侦探更快。</p>
 
-    <div class="game" id="game">
+      <div class="replay" id="kvReplay">
+    <button class="replay-btn" type="button" data-replay-btn aria-pressed="false">▶ 看侦探走一遍</button>
+    <span class="replay-note" data-replay-note aria-live="polite"></span>
+    <div class="replay-bar" data-replay-bar aria-hidden="true"><i></i></div>
+  </div>
+
+<div class="game" id="game">
       <div class="game-head">
         <div class="game-title">CASE #<span>100</span> · 隐藏目标</div>
         <div class="helper">提示：先问中间数，候选才会对半砍</div>
@@ -333,6 +360,217 @@
 </div>
 
 <script>
+/* ─── KVReplay ▸ v1（与 skills/knowvori/assets/replay-engine.js 同步）─── */
+/**
+ * knowvori · 自动回放引擎
+ *
+ * 这不是视频。它把「标准操作」照着做一遍：拖真的滑块、按真的按钮，
+ * 数字仍然是页面自己算的。所以演示永远不会和真操作脱节。
+ *
+ * ── 为什么内联 ────────────────────────────────────────────────
+ * 课程是单文件交付，不能 import。这段代码要原样拷进每个课程的
+ * script 里。validate-lesson.mjs 第 19 项会检查各课程的
+ * `KVReplay ▸ v1` 标记是否一致，改这里就要同步到那 7 个文件。
+ *
+ * ── 平滑是怎么做到的 ──────────────────────────────────────────
+ * 回放不直接给 input.value 赋值，而是每帧写一点、每帧派发 input
+ * 事件，页面自己会跟着重算重绘。这样拖动是连续的，不是跳变。
+ * 缓动用 easeInOutCubic，起步和收尾都软。
+ */
+
+window.KVReplay = (function () {
+  'use strict';
+
+  // 系统设了「减少动态效果」时，不粗暴跳变，只是把时长压到 1/3
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var SPEED = reduce ? 0.34 : 1;
+
+  function ease(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function raf(fn) { return window.requestAnimationFrame(fn); }
+  function caf(id) { window.cancelAnimationFrame(id); }
+
+  function fire(el, type) {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  function pick(sel) {
+    return typeof sel === 'string' ? document.querySelector(sel) : sel;
+  }
+
+  function create(opt) {
+    var root = opt.root;
+    if (!root) return null;
+
+    var btn = root.querySelector('[data-replay-btn]');
+    var note = root.querySelector('[data-replay-note]');
+    var bar = root.querySelector('[data-replay-bar]');
+    var fill = bar && bar.firstElementChild;
+    var steps = opt.steps || [];
+    var cancels = [];          // 正在跑的所有缓动，暂停时全部掐断
+    var running = false;
+    var stopped = false;
+    var at = 0;
+
+    function abortAll() {
+      while (cancels.length) {
+        try { cancels.pop()(); } catch (e) { /* 已经结束的忽略 */ }
+      }
+    }
+
+    function say(t) { if (note && t) note.textContent = t; }
+
+    function progress() {
+      if (!fill) return;
+      fill.style.width = Math.round((at / Math.max(1, steps.length)) * 100) + '%';
+    }
+
+    function wait(ms) {
+      return new Promise(function (done) {
+        var id = setTimeout(done, Math.max(0, ms * SPEED));
+        cancels.push(function () { clearTimeout(id); done(); });
+      });
+    }
+
+    /** 逐帧回调。fn(缓动后的进度, 线性进度) */
+    function tween(ms, fn) {
+      var dur = Math.max(1, ms * SPEED);
+      var t0 = null, id = 0, dead = false;
+      return new Promise(function (done) {
+        function tick(ts) {
+          if (dead) return done();
+          if (t0 === null) t0 = ts;
+          var p = Math.min(1, (ts - t0) / dur);
+          try { fn(ease(p), p); } catch (e) { dead = true; return done(); }
+          if (p < 1) id = raf(tick); else done();
+        }
+        id = raf(tick);
+        cancels.push(function () { dead = true; caf(id); done(); });
+      });
+    }
+
+    /**
+     * 平滑拖动滑块 / 写值。
+     * 每帧都派发 input，页面才会跟着重算 —— 少了这一步，动画在跑，
+     * 但页面纹丝不动（这是最典型的「录出来是一张静止图」的原因）。
+     */
+    function slide(sel, to, ms) {
+      var el = pick(sel);
+      if (!el) return Promise.resolve();
+      var from = Number(el.value);
+      to = Number(to);
+      if (!isFinite(to) || from === to) return Promise.resolve();
+      return tween(ms == null ? 620 : ms, function (e) {
+        el.value = String(from + (to - from) * e);
+        fire(el, 'input');
+      }).then(function () {
+        el.value = String(to);
+        fire(el, 'input');
+        fire(el, 'change');
+      });
+    }
+
+    function click(sel) {
+      var el = pick(sel);
+      if (el) el.click();
+    }
+
+    function stop(msg) {
+      running = false;
+      stopped = true;
+      abortAll();
+      if (btn) {
+        btn.textContent = '▶ ' + (opt.label || '看一遍演示');
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      if (fill) fill.style.width = '0%';
+      if (msg) say(msg);
+    }
+
+    var api = {
+      say: say, wait: wait, tween: tween, slide: slide, click: click,
+      el: pick, fire: fire,
+      /** 逐帧打字，让文字是「写出来」的而不是整段蹦出来 */
+      type: function (sel, text, ms) {
+        var el = pick(sel);
+        if (!el) return Promise.resolve();
+        var base = el.value || '';
+        var n = text.length;
+        return tween(ms == null ? 1200 : ms, function (e) {
+          el.value = base + text.slice(0, Math.round(n * e));
+          fire(el, 'input');
+        }).then(function () {
+          el.value = base + text;
+          fire(el, 'input');
+        });
+      },
+      /** 读二元查找那类页面的当前状态，供文案使用（页面没有该结构时返回空串） */
+      state: function () {
+        if (typeof opt.state === 'function') return opt.state();
+        return '';
+      },
+      setNow: function (sel, v) {
+        var el = pick(sel);
+        if (!el) return;
+        el.value = String(v);
+        fire(el, 'input');
+        fire(el, 'change');
+      }
+    };
+
+    async function run() {
+      for (at = 0; at < steps.length; at++) {
+        if (stopped) return;
+        progress();
+        try {
+          await steps[at](api);
+        } catch (e) {
+          stop('演示中断：' + e.message);
+          return;
+        }
+      }
+      if (stopped) return;
+      // 最后一步的旁白要留得住。直接 stop() 会用结束语把它盖掉，
+      // 用户几乎看不到那句收尾的话（最该读的往往就是它）。
+      await wait(1600);
+      if (stopped) return;
+      stop(opt.done || '演示结束。现在轮到你动手了 —— 同样的操作，数字一样是现算的。');
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (running) { stop('已暂停。再点一次从头演示。'); return; }
+        running = true;
+        stopped = false;
+        at = 0;
+        if (fill) fill.style.width = '0%';
+        btn.textContent = '⏸ 暂停';
+        btn.setAttribute('aria-pressed', 'true');
+        if (opt.onStart) opt.onStart();
+        run();
+      });
+    }
+
+    // 用户一动手，立刻交还控制权。演示不该跟用户抢方向盘。
+    //
+    // 必须挂在 document 上，不能挂 root：用户真正会去碰的是下面那块
+    // 画布 / 滑块，它们不在 .replay 里，事件冒不到 root —— 挂在 root
+    // 上等于「只有点演示条本身才会停」，用户一动控制权纹丝不动。
+    ['pointerdown', 'keydown'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (btn && btn.contains(e.target)) return;
+        if (running) stop('你接手了，演示停在这一步。');
+      }, true);
+    });
+
+    return api;
+  }
+
+  return { create: create, reduce: reduce };
+})();
+
 (function () {
   'use strict';
 
@@ -478,6 +716,10 @@
     }
   });
 
+  window.kvState = function () {
+    return '现在 ' + rangeText.textContent + '，还剩 ' + remainEl.textContent + ' 个候选，最多再问 ' + needEl.textContent + ' 次。';
+  };
+
   autoBtn.addEventListener('click', function () {
     if (won) return;
     var mid = Math.floor((lo + hi) / 2);
@@ -522,6 +764,68 @@
     });
   });
 
+})();
+
+/* ─── KVReplaySteps ▸ binary-search-detective.html ▸ v1 ───────────────────────────────
+   这一课的演示脚本。r.slide 是逐帧缓动拖滑块，r.click 是按真按钮。
+   数字全部由页面自己算，没有写死的。
+   ────────────────────────────────────────────────────────────── */
+(function () {
+  var root = document.getElementById('kvReplay');
+  if (!root || !window.KVReplay) return;
+  KVReplay.create({
+    root: root,
+    label: "看侦探走一遍",
+    done: "演示结束。换你自己的问法试试，看能不能更快。",
+    onStart: function () { document.getElementById('reset').click(); },
+    state: function () { return window.kvState ? window.kvState() : ''; },
+    steps: [
+      async (r) => {
+        r.say('目标已经藏好了。侦探不一个个问，而是每次问当前范围的正中间。');
+        await r.wait(600);
+      },
+      async (r) => {
+        // 答案随机，可能几步就中。所以每一步都先问「还剩几个候选」，
+        // 而不是硬演固定 7 步 —— 硬演会在答案碰巧靠中间时说出不成立的话。
+        document.getElementById('auto').click();
+        await r.wait(900);
+        var won = document.getElementById('game').classList.contains('won');
+        r.say(won
+          ? '一下子就中了——答案正好是这轮问的那个数。'
+          : '一次回答就砍掉一半，这就是二分的全部秘密。' + r.state());
+      },
+      async (r) => {
+        if (document.getElementById('game').classList.contains('won')) return;
+        document.getElementById('auto').click();
+        await r.wait(900);
+        var won = document.getElementById('game').classList.contains('won');
+        r.say(won ? '中了。' : '在新的一半里，再问它的正中。' + r.state());
+      },
+      async (r) => {
+        if (document.getElementById('game').classList.contains('won')) return;
+        r.say('盯住「最多还需」那一栏，它会一路掉到 1。' + r.state());
+        await r.wait(700);
+        document.getElementById('auto').click();
+        await r.wait(900);
+      },
+      async (r) => {
+        if (document.getElementById('game').classList.contains('won')) return;
+        document.getElementById('auto').click();
+        await r.wait(800);
+      },
+      async (r) => {
+        // 收尾：把「这次」和「最坏」分开说，避免和正文的 7 次混为一谈
+        var asked = Number(document.getElementById('steps').textContent) || 0;
+        var won = document.getElementById('game').classList.contains('won');
+        if (!won) { r.say('演示到这里。剩下几步，你自己点「让侦探走一步」会更清楚。'); return; }
+        r.say(asked < 7
+          ? '这次 ' + asked + ' 次就中了，运气不错。但算法保证的是「最坏 7 次」—— 目标落在哪，你事先并不知道。'
+          : '正好 7 次，这就是最坏情况。2⁷ = 128 > 100，所以 7 次一定够。');
+        await r.wait(1600);
+      }
+    
+    ]
+  });
 })();
 </script>
 </body>

@@ -202,6 +202,31 @@ function check(html, file) {
     add('pass', '反馈区', '无交互控件，不适用');
   }
 
+  // ───────── 19. 自动回放一致性 ─────────
+  //
+  // 演示脚本是复制到每个课程里的（单文件交付不能 import）。
+  // 复制就有版本漂移的风险：改了引擎忘了同步某个文件，表现是那一课
+  // 按钮点了没反应。所以这里只查「标记是否齐全、顺序是否正确」。
+  const hasEngine = html.includes('KVReplay ▸ v1');
+  const stepsTag = html.match(/KVReplaySteps ▸ ([^ ]+) ▸ v1/);
+  const hasSteps = !!stepsTag;
+  const btnCount = (html.match(/data-replay-btn/g) || []).length;
+
+  if (!hasEngine && !hasSteps && !btnCount) {
+    add('pass', '自动回放', '本例无自动演示，不适用');
+  } else if (!hasEngine) {
+    add('error', '自动回放', '有演示按钮却缺 kvreplay 引擎（KVReplay ▸ v1）');
+  } else if (!hasSteps) {
+    add('error', '自动回放', '有演示按钮却缺演示脚本（KVReplaySteps ▸ … ▸ v1）');
+  } else if (btnCount === 0) {
+    add('error', '自动回放', '注入了引擎和脚本，但页面上没有 data-replay-btn 按钮');
+  } else if (html.indexOf('KVReplay ▸ v1') > html.indexOf('KVReplaySteps ▸')) {
+    // 顺序反过来就永远不执行：脚本跑的时候引擎还没定义。
+    add('error', '自动回放', '引擎排在演示脚本之后，脚本会静默失效');
+  } else {
+    add('pass', '自动回放', '引擎 + 演示脚本 + 按钮齐全，顺序正确');
+  }
+
   return { file, results };
 }
 

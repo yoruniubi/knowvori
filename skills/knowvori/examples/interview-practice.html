@@ -12,7 +12,28 @@
       .explain,.rubric th{background:var(--soft)}
     }
     @media(max-width:520px){body{font-size:16px;padding:0 12px 48px}.card{padding:13px}.rubric{display:block;overflow-x:auto;white-space:normal}}
-  </style>
+  
+  /* ── 自动回放（由 tools/inject-replay.mjs 注入，勿手改）──────────
+     配色全部走课程自己的 CSS 变量，深色主题自动跟随。 */
+  .replay{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:18px 0;padding:9px 11px;
+    border:1px dashed var(--line);background:var(--surface,var(--paper));
+  }
+  .replay-btn{
+    min-height:40px;padding:6px 14px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);cursor:pointer;
+    font-family:var(--mono,var(--sans,system-ui));font-size:12.5px;font-weight:700;
+    letter-spacing:.02em;transition:background .15s,border-color .15s,color .15s;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .replay-btn:hover{border-color:var(--accent);background:var(--accent-soft,var(--soft))}
+  .replay-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  .replay-note{flex:1 1 220px;min-width:0;font-size:12.5px;line-height:1.6;color:var(--soft,var(--muted))}
+  .replay-bar{flex:0 0 100%;height:2px;background:var(--line);overflow:hidden}
+  .replay-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  @media (prefers-reduced-motion: reduce){.replay-bar i{transition:none}}
+</style>
 </head>
 <body><main class="wrap">
   <header><div class="eyebrow">knowvori · 面试表达 · 示例课</div><h1>面试练习：讲清一次线上故障</h1>
@@ -35,7 +56,13 @@
     </div>
   </section>
   <section><h2>练习：先写你的回答</h2><p class="prompt">「请讲一次你处理线上故障的经历。你如何判断原因？采取了什么行动？结果如何？」</p>
-    <div class="card"><label for="draft"><strong>先写 5 到 8 句，尽量包含你的判断依据和结果证据。</strong></label><textarea id="draft" placeholder="情境与影响……
+      <div class="replay" id="kvReplay">
+    <button class="replay-btn" type="button" data-replay-btn aria-pressed="false">▶ 看一遍演示</button>
+    <span class="replay-note" data-replay-note aria-live="polite"></span>
+    <div class="replay-bar" data-replay-bar aria-hidden="true"><i></i></div>
+  </div>
+
+<div class="card"><label for="draft"><strong>先写 5 到 8 句，尽量包含你的判断依据和结果证据。</strong></label><textarea id="draft" placeholder="情境与影响……
 我先检查……因为……
 我采取的行动……
 结果与证据……
@@ -61,7 +88,269 @@
     <p><strong>未检查：</strong>没有真实面试官评价；不判断回答真实性、语气或岗位匹配度；尚未做真实浏览器和移动端人工验收。</p></div></details>
   <footer><p>把回答连同目标岗位发回 Agent，可以请它按 rubric 追问，不要只问「回答得好吗？」</p></footer>
 </main><script>
+/* ─── KVReplay ▸ v1（与 skills/knowvori/assets/replay-engine.js 同步）─── */
+/**
+ * knowvori · 自动回放引擎
+ *
+ * 这不是视频。它把「标准操作」照着做一遍：拖真的滑块、按真的按钮，
+ * 数字仍然是页面自己算的。所以演示永远不会和真操作脱节。
+ *
+ * ── 为什么内联 ────────────────────────────────────────────────
+ * 课程是单文件交付，不能 import。这段代码要原样拷进每个课程的
+ * script 里。validate-lesson.mjs 第 19 项会检查各课程的
+ * `KVReplay ▸ v1` 标记是否一致，改这里就要同步到那 7 个文件。
+ *
+ * ── 平滑是怎么做到的 ──────────────────────────────────────────
+ * 回放不直接给 input.value 赋值，而是每帧写一点、每帧派发 input
+ * 事件，页面自己会跟着重算重绘。这样拖动是连续的，不是跳变。
+ * 缓动用 easeInOutCubic，起步和收尾都软。
+ */
+
+window.KVReplay = (function () {
+  'use strict';
+
+  // 系统设了「减少动态效果」时，不粗暴跳变，只是把时长压到 1/3
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var SPEED = reduce ? 0.34 : 1;
+
+  function ease(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function raf(fn) { return window.requestAnimationFrame(fn); }
+  function caf(id) { window.cancelAnimationFrame(id); }
+
+  function fire(el, type) {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  function pick(sel) {
+    return typeof sel === 'string' ? document.querySelector(sel) : sel;
+  }
+
+  function create(opt) {
+    var root = opt.root;
+    if (!root) return null;
+
+    var btn = root.querySelector('[data-replay-btn]');
+    var note = root.querySelector('[data-replay-note]');
+    var bar = root.querySelector('[data-replay-bar]');
+    var fill = bar && bar.firstElementChild;
+    var steps = opt.steps || [];
+    var cancels = [];          // 正在跑的所有缓动，暂停时全部掐断
+    var running = false;
+    var stopped = false;
+    var at = 0;
+
+    function abortAll() {
+      while (cancels.length) {
+        try { cancels.pop()(); } catch (e) { /* 已经结束的忽略 */ }
+      }
+    }
+
+    function say(t) { if (note && t) note.textContent = t; }
+
+    function progress() {
+      if (!fill) return;
+      fill.style.width = Math.round((at / Math.max(1, steps.length)) * 100) + '%';
+    }
+
+    function wait(ms) {
+      return new Promise(function (done) {
+        var id = setTimeout(done, Math.max(0, ms * SPEED));
+        cancels.push(function () { clearTimeout(id); done(); });
+      });
+    }
+
+    /** 逐帧回调。fn(缓动后的进度, 线性进度) */
+    function tween(ms, fn) {
+      var dur = Math.max(1, ms * SPEED);
+      var t0 = null, id = 0, dead = false;
+      return new Promise(function (done) {
+        function tick(ts) {
+          if (dead) return done();
+          if (t0 === null) t0 = ts;
+          var p = Math.min(1, (ts - t0) / dur);
+          try { fn(ease(p), p); } catch (e) { dead = true; return done(); }
+          if (p < 1) id = raf(tick); else done();
+        }
+        id = raf(tick);
+        cancels.push(function () { dead = true; caf(id); done(); });
+      });
+    }
+
+    /**
+     * 平滑拖动滑块 / 写值。
+     * 每帧都派发 input，页面才会跟着重算 —— 少了这一步，动画在跑，
+     * 但页面纹丝不动（这是最典型的「录出来是一张静止图」的原因）。
+     */
+    function slide(sel, to, ms) {
+      var el = pick(sel);
+      if (!el) return Promise.resolve();
+      var from = Number(el.value);
+      to = Number(to);
+      if (!isFinite(to) || from === to) return Promise.resolve();
+      return tween(ms == null ? 620 : ms, function (e) {
+        el.value = String(from + (to - from) * e);
+        fire(el, 'input');
+      }).then(function () {
+        el.value = String(to);
+        fire(el, 'input');
+        fire(el, 'change');
+      });
+    }
+
+    function click(sel) {
+      var el = pick(sel);
+      if (el) el.click();
+    }
+
+    function stop(msg) {
+      running = false;
+      stopped = true;
+      abortAll();
+      if (btn) {
+        btn.textContent = '▶ ' + (opt.label || '看一遍演示');
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      if (fill) fill.style.width = '0%';
+      if (msg) say(msg);
+    }
+
+    var api = {
+      say: say, wait: wait, tween: tween, slide: slide, click: click,
+      el: pick, fire: fire,
+      /** 逐帧打字，让文字是「写出来」的而不是整段蹦出来 */
+      type: function (sel, text, ms) {
+        var el = pick(sel);
+        if (!el) return Promise.resolve();
+        var base = el.value || '';
+        var n = text.length;
+        return tween(ms == null ? 1200 : ms, function (e) {
+          el.value = base + text.slice(0, Math.round(n * e));
+          fire(el, 'input');
+        }).then(function () {
+          el.value = base + text;
+          fire(el, 'input');
+        });
+      },
+      /** 读二元查找那类页面的当前状态，供文案使用（页面没有该结构时返回空串） */
+      state: function () {
+        if (typeof opt.state === 'function') return opt.state();
+        return '';
+      },
+      setNow: function (sel, v) {
+        var el = pick(sel);
+        if (!el) return;
+        el.value = String(v);
+        fire(el, 'input');
+        fire(el, 'change');
+      }
+    };
+
+    async function run() {
+      for (at = 0; at < steps.length; at++) {
+        if (stopped) return;
+        progress();
+        try {
+          await steps[at](api);
+        } catch (e) {
+          stop('演示中断：' + e.message);
+          return;
+        }
+      }
+      if (stopped) return;
+      // 最后一步的旁白要留得住。直接 stop() 会用结束语把它盖掉，
+      // 用户几乎看不到那句收尾的话（最该读的往往就是它）。
+      await wait(1600);
+      if (stopped) return;
+      stop(opt.done || '演示结束。现在轮到你动手了 —— 同样的操作，数字一样是现算的。');
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (running) { stop('已暂停。再点一次从头演示。'); return; }
+        running = true;
+        stopped = false;
+        at = 0;
+        if (fill) fill.style.width = '0%';
+        btn.textContent = '⏸ 暂停';
+        btn.setAttribute('aria-pressed', 'true');
+        if (opt.onStart) opt.onStart();
+        run();
+      });
+    }
+
+    // 用户一动手，立刻交还控制权。演示不该跟用户抢方向盘。
+    //
+    // 必须挂在 document 上，不能挂 root：用户真正会去碰的是下面那块
+    // 画布 / 滑块，它们不在 .replay 里，事件冒不到 root —— 挂在 root
+    // 上等于「只有点演示条本身才会停」，用户一动控制权纹丝不动。
+    ['pointerdown', 'keydown'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (btn && btn.contains(e.target)) return;
+        if (running) stop('你接手了，演示停在这一步。');
+      }, true);
+    });
+
+    return api;
+  }
+
+  return { create: create, reduce: reduce };
+})();
+
 const reveal=document.getElementById('reveal'),answer=document.getElementById('answer'),draft=document.getElementById('draft');reveal.addEventListener('click',()=>{if(!draft.value.trim()){draft.focus();draft.setCustomValidity('先写几句回答，再看示例。');draft.reportValidity();draft.addEventListener('input',()=>draft.setCustomValidity(''),{once:true});return}answer.classList.add('visible');reveal.disabled=true});
 document.querySelectorAll('.quiz').forEach(q=>{const explanation=q.querySelector('.explain');q.querySelectorAll('.opt').forEach(button=>button.addEventListener('click',()=>{if(button.disabled)return;const correct=button.dataset.correct==='true';q.querySelectorAll('.opt').forEach(b=>b.disabled=true);button.style.borderColor=correct?'#356b43':'#a4432a';if(!correct){q.querySelectorAll('.opt').forEach(b=>{if(b.dataset.correct==='true')b.style.borderColor='#356b43'});const why=document.createElement('p');why.className='generated';why.textContent=button.dataset.why;q.insertBefore(why,explanation);explanation.hidden=false}else{const line=document.createElement('p');line.className='generated small';line.textContent='✓ '+button.dataset.why;q.appendChild(line)}}))});
 document.getElementById('clear').addEventListener('click',()=>{draft.value='';answer.classList.remove('visible');reveal.disabled=false;document.querySelectorAll('.quiz').forEach(q=>{q.querySelectorAll('.opt').forEach(b=>{b.disabled=false;b.style.borderColor=''});q.querySelectorAll('.generated').forEach(n=>n.remove());const ex=q.querySelector('.explain');if(ex)ex.hidden=true});draft.focus()});
+
+/* ─── KVReplaySteps ▸ interview-practice.html ▸ v1 ───────────────────────────────
+   这一课的演示脚本。r.slide 是逐帧缓动拖滑块，r.click 是按真按钮。
+   数字全部由页面自己算，没有写死的。
+   ────────────────────────────────────────────────────────────── */
+(function () {
+  var root = document.getElementById('kvReplay');
+  if (!root || !window.KVReplay) return;
+  KVReplay.create({
+    root: root,
+    label: "看一遍演示",
+    done: "演示结束。现在写你自己的，写完再展开示例对照。",
+    onStart: function () { document.getElementById('clear').click(); },
+    state: undefined,
+    steps: [
+      async (r) => {
+        r.say('题目是「讲一次你处理线上故障的经历」。先别急着写漂亮话——先想清楚四件事。');
+        await r.wait(1200);
+      },
+      async (r) => {
+        r.say('第一件：情境和影响。「上周订单服务错误率突然升高，结算开始超时」——听者立刻知道多严重。');
+        await r.type('#draft', '上周订单服务的错误率突然升高，结算请求开始超时。', 1300);
+        await r.wait(700);
+      },
+      async (r) => {
+        r.say('第二件：你怎么判断原因。这一步最容易被追问，必须说清依据。');
+        await r.type('#draft', '\n我先核对部署时间和依赖服务指标，发现故障紧跟一次数据库连接池配置变更，而数据库本身负载正常。', 1600);
+        await r.wait(700);
+      },
+      async (r) => {
+        r.say('第三件：行动要具体，能分清哪些是你做的。');
+        await r.type('#draft', '\n我和同事核对后先回滚这次配置，再盯错误率和延迟曲线。', 1300);
+        await r.wait(700);
+      },
+      async (r) => {
+        r.say('第四件：结果要有可核对的证据，别只说「恢复了」。');
+        await r.type('#draft', '\n十分钟内错误率回到变更前水平，告警解除。复盘时我们补了连接池耗尽告警，并把配置变更加进灰度观察。', 1700);
+        await r.wait(900);
+      },
+      async (r) => {
+        r.say('现在展开示例与自评表，逐项对照刚才写的四段——注意是看证据够不够，不是看措辞像不像。');
+        document.getElementById('reveal').click();
+        await r.wait(1600);
+      },
+      async (r) => {
+        r.say('草稿只存在这个页面的内存里，不上传、不评分。要不要现在自己写一遍？');
+      }
+    
+    ]
+  });
+})();
 </script></body></html>
