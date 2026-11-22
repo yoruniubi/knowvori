@@ -28,6 +28,16 @@ function check(html, file) {
   const results = [];
   const add = (level, rule, msg) => results.push({ level, rule, msg });
 
+  // 汇总页（驾驶舱）不是日课，判据是「有阶段与天列表 CONFIG，但没有 dayId」。
+  // 它该由 validate-route.mjs 检查；在这里逐条报错只会制造假警报，
+  // 而假警报比漏报更坏 —— 会训练人忽略真警报。
+  const isRouteHub = /stages:\s*\[/.test(html) && /days:\s*\[/.test(html) &&
+                     !/dayId:\s*'[^']+'/.test(html);
+  if (isRouteHub) {
+    add('warn', '文件类型', '这是路线汇总页，不是日课；请用 validate-route.mjs 检查');
+    return { file, results };
+  }
+
   // 剥掉注释，避免把注释里的 URL 当成外部请求
   const stripped = html.replace(/<!--[\s\S]*?-->/g, '');
 
@@ -225,6 +235,53 @@ function check(html, file) {
     add('error', '自动回放', '引擎排在演示脚本之后，脚本会静默失效');
   } else {
     add('pass', '自动回放', '引擎 + 演示脚本 + 按钮齐全，顺序正确');
+  }
+
+  // ───────── 20. 学习路线：单课侧接线 ─────────
+  //
+  // 一节课属于某条路线时，必须有进度上报，否则汇总页永远显示未完成。
+  // 独立单课（不属于路线）不适用，直接跳过。
+  const isLessonWithRoute = html.includes('id="dayDone"') || html.includes('KVProgress ▸ v1');
+  if (!isLessonWithRoute) {
+    add('pass', '路线接线', '本例不属于学习路线，不适用');
+  } else {
+    const hasProg = html.includes('KVProgress ▸ v1');
+    const hasDoneBox = html.includes('id="dayDone"');
+    const hasDayId = /dayId:\s*'[^']+'/.test(html) && !/dayId:\s*''/.test(html);
+    const hasRouteId = /routeId:\s*'[^']+'/.test(html) && !/routeId:\s*''/.test(html);
+
+    if (!hasProg) {
+      add('error', '路线接线', '有完成按钮但缺进度引擎（KVProgress ▸ v1），进度存不下来');
+    } else if (!hasDoneBox) {
+      add('warn', '路线接线', '有进度引擎但没有完成按钮（id="dayDone"），用户无法标记学完');
+    } else if (!hasRouteId || !hasDayId) {
+      add('warn', '路线接线', '完成按钮未接线：CONFIG 的 routeId / dayId 还是空值');
+    } else {
+      add('pass', '路线接线', '进度引擎 + 完成按钮 + routeId/dayId 已接线');
+    }
+  }
+
+  // ───────── 21. 学习路线：衔接语气（回指 / 明天预告）─────────
+  //
+  // 路线里最容易翻车的是「第 8 天假设用户记得第 7 天的细节」。
+  // 有 routeId 却没有任何回指，用户停一天回来就接不上了。
+  if (/routeId:\s*'[^']+'/.test(html) && !/routeId:\s*''/.test(html)) {
+    const hasRecap = html.includes('class="recap"');
+    const hasNextUp = html.includes('class="next-up"');
+    // 第一天没有「昨天」，本来就不该有回指块
+    const dayNum = (html.match(/dayId:\s*'day-(\d+)'/) || [])[1];
+    const isFirstDay = dayNum === '01' || dayNum === '1';
+    if (!hasRecap && isFirstDay) {
+      add('pass', '路线衔接', '第 1 天无前置，不需要回指块');
+    } else if (!hasRecap) {
+      add('error', '路线衔接', '属于路线但没有回指块（class="recap"），用户隔天回来接不上');
+    } else if (!hasNextUp) {
+      add('warn', '路线衔接', '有回指但缺「明天预告 / 今天没讲什么」（class="next-up"）');
+    } else {
+      add('pass', '路线衔接', '回指 + 明天预告齐全');
+    }
+  } else {
+    add('pass', '路线衔接', '非路线课程，不适用');
   }
 
   return { file, results };

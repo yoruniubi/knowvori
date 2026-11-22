@@ -4813,12 +4813,18 @@ window.KVReplay = (function () {
     // 必须挂在 document 上，不能挂 root：用户真正会去碰的是下面那块
     // 画布 / 滑块，它们不在 .replay 里，事件冒不到 root —— 挂在 root
     // 上等于「只有点演示条本身才会停」，用户一动控制权纹丝不动。
-    ['pointerdown', 'keydown'].forEach(function (ev) {
-      document.addEventListener(ev, function (e) {
-        if (btn && btn.contains(e.target)) return;
-        if (running) stop('你接手了，演示停在这一步。');
-      }, true);
-    });
+    document.addEventListener('pointerdown', function (e) {
+      // 点按钮本身是「暂停」，不算接管
+      if (btn && btn.contains(e.target)) return;
+      if (running) stop('你接手了，演示停在这一步。');
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      // 按钮获得焦点时，空格 / 回车是它自己的暂停键，不算接管；
+      // 但方向键、字母键等一律算用户插手 —— 否则「用键盘动滑块」就停不下来。
+      if (btn && btn.contains(e.target) && (e.key === ' ' || e.key === 'Enter')) return;
+      if (running) stop('你接手了，演示停在这一步。');
+    }, true);
 
     return api;
   }

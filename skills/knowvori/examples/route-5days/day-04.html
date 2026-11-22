@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 4 · 特征缩放：为什么能把训练快十倍 — 5 天看懂模型怎么学</title>
+<style>
+  :root{
+    --paper:#fbfaf7;--surface:#fff;--ink:#1c1b19;--ink-soft:#5c5850;--line:#e2ded6;
+    --accent:#b45309;--accent-soft:#fdf3e3;--ok:#15803d;--ok-soft:#eefbf1;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI","Noto Sans SC",sans-serif;
+  }
+  [data-theme="dark"]{
+    --paper:#14130f;--surface:#1c1a16;--ink:#eae6dc;--ink-soft:#a09a8c;--line:#332f27;
+    --accent:#f0a34a;--accent-soft:#2a2115;--ok:#63c98a;--ok-soft:#16241b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:26px 17px 70px}
+  .replay{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0;padding:9px 11px;
+    border:1px dashed var(--line);background:var(--surface)}
+  .replay-btn{min-height:40px;padding:6px 14px;border:1px solid var(--line);background:var(--paper);
+    color:var(--ink);cursor:pointer;font-family:var(--mono);font-size:12.5px;font-weight:700;
+    display:inline-flex;align-items:center;gap:7px}
+  .replay-btn:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .replay-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  [data-theme="dark"] .replay-btn[aria-pressed="true"]{color:#14130f}
+  .replay-note{flex:1 1 220px;min-width:0;font-size:12.5px;line-height:1.6;color:var(--ink-soft)}
+  .replay-bar{flex:0 0 100%;height:2px;background:var(--line);overflow:hidden}
+  .replay-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  .top{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;color:var(--accent);
+    text-transform:uppercase;margin-bottom:8px}
+  h1{font-size:clamp(22px,3.6vw,29px);line-height:1.3;margin:0 0 12px;letter-spacing:-.01em}
+  .goal{font-size:16.5px;color:var(--ink-soft);margin:0 0 8px}
+  .goal b{color:var(--ink)}
+  .crumb{font-size:13px;margin:0 0 22px}
+  .crumb a{color:var(--accent)}
+  .recap{border-left:2px solid var(--accent);padding:9px 0 9px 13px;margin:0 0 20px;
+    font-size:14.5px;color:var(--ink-soft)}
+  .recap p{margin:0 0 5px}.recap p:last-child{margin:0}
+  .recap a{color:var(--accent)}
+  section.stn{margin:0 0 30px}
+  .stn-no{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--accent);
+    text-transform:uppercase;margin-bottom:5px}
+  h2{font-size:max(17px,1.15em);line-height:1.4;margin:0 0 10px}
+  .jargon{background:var(--accent-soft);border-left:2px solid var(--accent);
+    padding:11px 13px;margin:14px 0;font-size:14.5px}
+  .jargon p{margin:0 0 7px}.jargon p:last-child{margin:0}
+  .term{font-weight:700;color:var(--accent)}
+  .derive{border:1px solid var(--line);background:var(--surface);padding:12px 14px;
+    margin:14px 0;font-size:14.5px}
+  .derive div{margin-bottom:7px;padding-left:54px;position:relative}
+  .derive div:last-child{margin:0}
+  .tag{position:absolute;left:0;top:2px;font-family:var(--mono);font-size:10.5px;
+    padding:1px 6px;background:var(--accent-soft);color:var(--accent);font-weight:700}
+  .derive .counter{padding-top:8px;border-top:1px dashed var(--line);margin-top:9px}
+  .demo{border:1px solid var(--line);background:var(--surface);padding:13px;margin:16px 0}
+  .demo-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);
+    text-transform:uppercase;margin-bottom:11px}
+  .ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:11px;
+    font-size:13.5px;color:var(--ink-soft)}
+  .ctrl label{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:0}
+  input[type=range]{flex:1;min-width:80px;min-height:40px;accent-color:var(--accent)}
+  .val{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink);
+    min-width:46px;font-variant-numeric:tabular-nums}
+  .btn-reset{min-height:40px;padding:5px 12px;border:1px solid var(--line);background:var(--paper);
+    color:var(--ink-soft);cursor:pointer;font-family:var(--mono);font-size:12px}
+  .btn-reset:hover{border-color:var(--accent);color:var(--accent)}
+  .out{font-size:13.5px;line-height:1.65;color:var(--ink-soft);
+    padding-top:9px;border-top:1px dashed var(--line);margin-top:9px}
+  .out b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .quiz{border:1px solid var(--line);background:var(--surface);padding:13px;margin:0 0 11px}
+  .q{font-size:15px;font-weight:600;margin:0 0 10px;line-height:1.6}
+  .opts{display:flex;flex-direction:column;gap:7px}
+  .opt{text-align:left;min-height:40px;padding:9px 12px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);cursor:pointer;font-family:inherit;font-size:14.5px;
+    line-height:1.55}
+  .opt:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .opt.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opt.wrong{border-color:#c2410c;background:#fdf0e9}
+  [data-theme="dark"] .opt.wrong{background:#2a1712}
+  .why{display:none;font-size:13.5px;line-height:1.7;margin-top:9px;padding:9px 11px;
+    background:var(--accent-soft);border-left:2px solid var(--accent);color:var(--ink-soft)}
+  pre{background:var(--surface);border:1px solid var(--line);padding:12px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.5px;line-height:1.65;margin:12px 0}
+  code{font-family:var(--mono);font-size:.92em;background:var(--accent-soft);padding:1px 5px}
+  pre code{background:none;padding:0}
+  .note-box{border:1px solid var(--line);background:var(--surface);padding:11px 13px;
+    font-size:13.5px;line-height:1.7;margin:12px 0}
+  .checklist{list-style:none;padding:0;margin:0}
+  .checklist li{display:flex;gap:9px;align-items:flex-start;padding:7px 0;
+    border-bottom:1px solid var(--line);font-size:14.5px}
+  .checklist li:last-child{border:0}
+  .checklist input{margin-top:5px;width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto}
+  .daydone{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:20px 0 8px;
+    padding:14px 15px;border:1px solid var(--line);background:var(--surface)}
+  .daydone-txt{flex:1 1 220px;min-width:0;font-size:13.5px;color:var(--ink-soft)}
+  .daydone-txt b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}
+  .daydone-btn{min-height:42px;padding:9px 18px;border:1px solid var(--accent);
+    background:var(--accent);color:var(--paper);cursor:pointer;font-family:var(--sans);
+    font-size:14.5px;font-weight:700}
+  [data-theme="dark"] .daydone-btn{color:#14130f}
+  .daydone-btn[data-done="1"]{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+  .daydone-hint{flex:0 0 100%;font-size:12.5px;color:var(--ink-soft);margin:0}
+  .next-up{border-left:2px solid var(--line);padding:9px 0 9px 13px;margin:20px 0 0;
+    font-size:14.5px;color:var(--ink-soft)}
+  .next-up p{margin:0 0 5px}.next-up p:last-child{margin:0}
+  .next-up a{color:var(--accent)}
+  @media (max-width:520px){
+    .wrap{padding:20px 13px 56px}
+    .derive div{padding-left:0;padding-top:21px}
+    .tag{top:0}
+    .ctrl label{flex:1 1 100%}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+  <button id="themeBtn" type="button" aria-label="切换深浅色"
+    style="position:fixed;top:12px;right:12px;z-index:20;min-width:40px;min-height:40px;
+    border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);
+    cursor:pointer;font-size:15px;line-height:1;border-radius:0">◐</button>
+  <script>
+    (function () {
+      var b = document.getElementById('themeBtn');
+      var KEY = 'kv:theme';
+      var saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = saved || (sysDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      b.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        try { localStorage.setItem(KEY, t); } catch (e) {}
+      });
+    })();
+  </script>
+<div class="wrap">
+  <div class="top">Day 4 / 5 · 5 天看懂模型怎么学</div>
+  <h1>特征缩放：为什么能把训练快十倍</h1>
+  <p class="goal">学完这一天，<b>能解释「细长沟」怎么来的，并说出缩放前后下降路径的变化</b>。</p>
+  <p class="crumb"><a href="route.html">← 回到路线总览</a></p>
+
+  <div class="recap">
+    <p>昨天你算出了发散的条件：因子 |1−2·学习率| 大于 1 就炸。</p>
+    <p>如果没印象，<a href="day-03.html">回去看 Day 3</a>，十分钟就够。</p>
+  </div>
+
+  <section class="stn">
+    <div class="stn-no">第 1 站 · 卡点</div>
+    <h2>两个特征量级差 100 倍，地形就变成一条细沟</h2>
+    <p>你已经会调学习率了。但同样一个学习率，在这份数据上很好，换一份就得调到极小 —— 为什么？</p>
+
+    <div class="jargon">
+      <p><span class="term">「特征缩放」</span>把每个特征换算到差不多的范围（比如都除以标准差）。不改变信息，只改变地形形状。</p>
+      <p style="color:var(--ink-soft);font-size:14px">就像把「米」和「厘米」统一成一种单位再一起算。</p>
+      <p><span class="term">「细长沟」</span>一个方向很陡、一个方向很平的地形。梯度下降只能在里面来回折返，走得极慢。</p>
+      <p style="color:var(--ink-soft);font-size:14px">就像一条又窄又长的山谷，你没法斜着走，只能左右横跳着往前进。</p>
+    </div>
+
+    <div class="derive">
+      <div><span class="tag">现象</span>一个特征范围 0~1，另一个 0~10000。训练时损失下降得又慢又抖。</div>
+      <div><span class="tag">为什么</span>量级大的特征稍微动一点就让预测变很多，所以在误差面上是陡方向；量级小的是平方向。陡方向限制住学习率上限，平方向就又慢得离谱。</div>
+      <div><span class="tag">所以</span>于是把特征缩放到相近尺度，地形从细长沟变成接近圆的碗，一个学习率就能同时照顾两个方向，几十步就到底。</div>
+      <div class="counter"><span class="tag">不这样</span>假如不缩放、只把学习率调到极小来避免震荡，平的方向几乎不动 —— 训练不报错，但模型基本没学到东西。这种「安静地失败」更难发现。</div>
+    </div>
+
+    <div class="replay" id="kvReplay">
+      <button class="replay-btn" type="button" data-replay-btn aria-pressed="false">▶ 看一遍演示</button>
+      <span class="replay-note" data-replay-note aria-live="polite"></span>
+      <div class="replay-bar" data-replay-bar aria-hidden="true"><i></i></div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">动手试 · 拖动特征比例，看下降路径怎么变成锯齿</div>
+      <div class="ctrl"><label>特征 B 的量级 <input type="range" id="ratioSlider" min="1" max="100" value="10" step="1"></label>
+      <span class="val" id="ratioVal">10×</span>
+      <button class="btn-reset" id="resetBtn" type="button">重置</button>
+      </div>
+      <svg id="demoSvg" viewBox="0 0 340 190" width="100%" height="190" role="img" aria-label="等高线与下降路径"></svg>
+      <div id="demoOut" class="out">［下降路径会画在这里］</div>
+    </div>
+  </section>
+
+  <section class="stn">
+    <div class="stn-no">第 2 站 · 自测</div>
+    <h2>先答，答完才看解释</h2>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 12px">
+      反馈类型：<b>客观校验</b>（每题有唯一正确答案，选完立刻判定）。
+      第 3 题是<b>迁移题</b> —— 换一个没在这节课出现过的新情境。
+    </p>
+
+    <div class="quiz" data-answered="0">
+      <p class="q">1. 两个特征量级差 100 倍，误差面的形状最可能是？</p>
+      <div class="opts">
+        <button class="opt" type="button" data-q="0" data-o="0" data-correct="true">又窄又长的椭圆（细长沟）</button>
+        <button class="opt" type="button" data-q="0" data-o="1" data-correct="false">正圆</button>
+        <button class="opt" type="button" data-q="0" data-o="2" data-correct="false">随机形状</button>
+        <button class="opt" type="button" data-q="0" data-o="3" data-correct="false">一条直线</button>
+      </div>
+      <div class="explain why" data-why="0-0" hidden>一个方向曲率大、一个方向曲率小，等高线被拉成细长椭圆。梯度下降在这种形状上会锯齿式前进，很慢。</div>
+      <div class="explain why" data-why="0-1" hidden>只有两个方向曲率相同时才接近圆。</div>
+      <div class="explain why" data-why="0-2" hidden>二次型损失在这种情况下的形状是确定的椭圆。</div>
+      <div class="explain why" data-why="0-3" hidden>损失是二维函数，不会退化成直线。</div>
+    </div>
+
+    <div class="quiz" data-answered="0">
+      <p class="q">2. 缩放特征之后，最优的模型预测会变吗？</p>
+      <div class="opts">
+        <button class="opt" type="button" data-q="1" data-o="0" data-correct="true">预测不变，但参数的数值会变</button>
+        <button class="opt" type="button" data-q="1" data-o="1" data-correct="false">预测也变了，模型变差了</button>
+        <button class="opt" type="button" data-q="1" data-o="2" data-correct="false">完全没有任何变化</button>
+        <button class="opt" type="button" data-q="1" data-o="3" data-correct="false">无法确定</button>
+      </div>
+      <div class="explain why" data-why="1-0" hidden>缩放是线性变换，预测能力不变；但同一个特征现在的系数要相应放大或缩小才能表达同样的关系。所以「参数变了」不代表「模型变差了」。</div>
+      <div class="explain why" data-why="1-1" hidden>不会变差，只是参数换了标尺。</div>
+      <div class="explain why" data-why="1-2" hidden>参数数值会变，因为输入尺度变了。</div>
+      <div class="explain why" data-why="1-3" hidden>可以确定：这是同一族解的重参数化。</div>
+    </div>
+
+    <div class="quiz" data-answered="0">
+      <p class="q">3. 迁移：只做标准化（减均值除标准差），但数据里有个极端离群点，会出什么问题？</p>
+      <div class="opts">
+        <button class="opt" type="button" data-q="2" data-o="0" data-correct="true">均值和标准差被离群点带偏，大多数点被压到极小区间</button>
+        <button class="opt" type="button" data-q="2" data-o="1" data-correct="false">毫无影响</button>
+        <button class="opt" type="button" data-q="2" data-o="2" data-correct="false">离群点会被自动删掉</button>
+        <button class="opt" type="button" data-q="2" data-o="3" data-correct="false">标准化会报错</button>
+      </div>
+      <div class="explain why" data-why="2-0" hidden>标准化用的均值和标准差都对离群点敏感。一个 500 的离群点会把标准差拉得很大，正常点全挤在 0 附近。这时该用中位数和四分位距（鲁棒缩放）。</div>
+      <div class="explain why" data-why="2-1" hidden>均值和标准差都会被离群点严重影响。</div>
+      <div class="explain why" data-why="2-2" hidden>不会自动删。</div>
+      <div class="explain why" data-why="2-3" hidden>不会报错，是「安静地变差」。</div>
+    </div>
+  </section>
+
+  <section class="stn">
+    <div class="stn-no">第 3 站 · 动手</div>
+    <h2>亲眼看见细长沟让梯度下降变慢</h2>
+    <pre><code>// E(x,y) = x^2 + 100*y^2  —— y 方向陡 10 倍，就是细长沟
+const grad = (x, y) =&gt; [2 * x, 200 * y];
+const lr = 0.009;            // 受陡方向限制，只能取这么小
+
+let [x, y] = [1, 1];
+for (let i = 1; i &lt;= 60; i++) {
+  const [gx, gy] = grad(x, y);
+  x -= lr * gx; y -= lr * gy;
+  if (i % 20 === 0) console.log(`i=${i} x=${x.toFixed(4)} y=${y.toFixed(4)}`);
+}</code></pre>
+    <div class="note-box">
+      <strong>预期输出</strong><br>
+      <code style="white-space:pre-wrap">i=20 x=0.4482 y=0.1493
+i=40 x=0.2009 y=0.0056
+i=60 x=0.0900 y=0.0001</code><br>
+      <span style="font-size:13px;color:var(--ink-soft)">已运行。x 从 1 降到 0.09 花了 60 步，而 y 早就几乎到 0 —— 同一个学习率，两个方向速度差几十倍，这就是细长沟。</span>
+    </div>
+    <button class="btn-reset" type="button" id="ranBtn" data-hands-on="0"
+      style="min-height:40px;padding:7px 14px">我跑过这段代码了</button>
+  </section>
+
+  <section class="stn">
+    <div class="stn-no">第 4 站 · 完成清单</div>
+    <h2>勾完，这一天就算过关</h2>
+    <ul class="checklist">
+      <li><input type="checkbox"><span>我能不看资料说出「能解释「细长沟」怎么来的，并说出缩放前后下降路径的变化」</span></li>
+      <li><input type="checkbox"><span>我能解释为什么，而不是只记住结论</span></li>
+      <li><input type="checkbox"><span>我知道不这么做会怎样</span></li>
+      <li><input type="checkbox"><span>我能在一道没见过的新题上用出来</span></li>
+    </ul>
+
+    <div class="daydone" id="dayDone">
+      <div class="daydone-txt">
+        <b>今天学完了吗？</b>
+        自测全部作答 + 动手跑过一次，就可以点右边。进度按天记，断几天回来还能接着走。
+      </div>
+      <button class="daydone-btn" type="button" id="dayDoneBtn" data-done="0">今天学完了 ✓</button>
+      <p class="daydone-hint" id="dayDoneHint"></p>
+    </div>
+  </section>
+
+  <div class="next-up">
+    <p><strong>明天（Day 5）</strong>：到此模型都能好好收敛了。最后一个问题：收敛得好，就代表学对了吗？明天看一种更常见的失败。</p>
+    <p><strong>今天没讲的</strong>：PCA 白化、BatchNorm 的具体实现 —— 只讲「量级不一致为什么让训练变慢」。</p>
+    <p><a href="day-05.html">直接去 Day 5 →</a> · <a href="route.html">回到路线总览</a></p>
+  </div>
+</div>
+
+<script>
+/* ─── KVProgress ▸ v1 ─── */
+/* ─── KVProgress ▸ v1 ─────────────────────────────────────────────
+   学习路线的进度读写。内联进 route.html 和每个 day-XX.html。
+
+   为什么要内联：课程是单文件交付，断网双击能开，不能外链脚本文件。
+
+   为什么进度单独存：进度属于「这条路线」，不属于某一天的课。
+   存进某节课里，换一节课就丢了。file:// 下同目录的 HTML 共享
+   localStorage（已实测 Edge / file 协议），所以汇总页和各天课程
+   能读写同一份。
+
+   三条纪律：
+   1. 所有读写都 try/catch。隐私模式下 localStorage 会直接抛异常，
+      不能让整页白屏 —— 存不了进度也得能学。
+   2. 数据格式带版本号。以后改了格式要能识别旧数据，而不是崩。
+   3. 读失败一律当「全部未开始」，不要猜。
+   ──────────────────────────────────────────────────────────────── */
+(function (global) {
+  'use strict';
+
+  var VERSION = 1;
+
+  function keyOf(routeId) {
+    return 'kv:route:' + routeId;
+  }
+
+  function empty(routeId) {
+    return { v: VERSION, route: routeId, done: {}, visited: {}, notes: {} };
+  }
+
+  /* 存不了的时候用什么顶上。
+     用内存对象兜住，这样同一次会话里进度还是「看起来在动」，
+     不保存也不会让用户以为操作失败了。 */
+  var memoryFallback = {};
+  var available = null;
+
+  function canStore() {
+    if (available !== null) return available;
+    try {
+      var probe = 'kv:probe';
+      global.localStorage.setItem(probe, '1');
+      global.localStorage.removeItem(probe);
+      available = true;
+    } catch (e) {
+      available = false;
+    }
+    return available;
+  }
+
+  function load(routeId) {
+    var base = empty(routeId);
+    if (!canStore()) return memoryFallback[routeId] || base;
+
+    try {
+      var raw = global.localStorage.getItem(keyOf(routeId));
+      if (!raw) return base;
+
+      var data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return base;
+
+      // 版本不匹配：当前只有 v1。未来加 v2 时在这里迁移，
+      // 不认识的就当空数据，不要拿结构不明的对象往下跑。
+      if (data.v !== VERSION) return base;
+
+      // 逐字段兜底：手改过的数据、半截写入都可能缺字段
+      return {
+        v: VERSION,
+        route: routeId,
+        done: data.done && typeof data.done === 'object' ? data.done : {},
+        visited: data.visited && typeof data.visited === 'object' ? data.visited : {},
+        notes: data.notes && typeof data.notes === 'object' ? data.notes : {}
+      };
+    } catch (e) {
+      // JSON 坏了、被别的程序写脏了 —— 当空数据，别崩
+      return base;
+    }
+  }
+
+  function save(routeId, data) {
+    data.v = VERSION;
+    data.route = routeId;
+    if (!canStore()) {
+      memoryFallback[routeId] = data;
+      return false;
+    }
+    try {
+      global.localStorage.setItem(keyOf(routeId), JSON.stringify(data));
+      return true;
+    } catch (e) {
+      // 配额满（手机尤其容易）、无痕模式 —— 退到内存，本次会话仍可用
+      memoryFallback[routeId] = data;
+      return false;
+    }
+  }
+
+  function markDone(routeId, dayId) {
+    var d = load(routeId);
+    if (!d.done[dayId]) d.done[dayId] = Date.now();
+    d.visited[dayId] = Date.now();
+    save(routeId, d);
+    return d;
+  }
+
+  function undoSelf(routeId, dayId) {
+    // 允许退回。点错了、想重学一遍都得能撤销，
+    // 不然一次误点就永久污染了进度。
+    var d = load(routeId);
+    delete d.done[dayId];
+    save(routeId, d);
+    return d;
+  }
+
+  function markVisited(routeId, dayId) {
+    var d = load(routeId);
+    d.visited[dayId] = Date.now();
+    save(routeId, d);
+    return d;
+  }
+
+  /* 第一个未完成的天 —— 汇总页「今天该学」用它。
+     注意不是「最后访问 + 1」：用户可能跳着学完了 Day 5 而 Day 3 没做。 */
+  function nextDay(routeId, days) {
+    var d = load(routeId);
+    for (var i = 0; i < days.length; i++) {
+      if (!d.done[days[i].id]) return days[i];
+    }
+    return null;
+  }
+
+  function counts(routeId, days) {
+    var d = load(routeId);
+    var done = 0;
+    for (var i = 0; i < days.length; i++) {
+      if (d.done[days[i].id]) done++;
+    }
+    return { done: done, total: days.length };
+  }
+
+  /* 「上次学到哪」—— 取最近一次访问且未完成的天。
+     完成的也算进来会让文案变成「上次学到 Day 5」，而 Day 5 早学完了，
+     说「你上次在 Day 6」才是有用的信息。 */
+  function lastActive(routeId, days) {
+    var d = load(routeId);
+    var best = null, bestTs = 0;
+    for (var i = 0; i < days.length; i++) {
+      var ts = d.visited[days[i].id] || 0;
+      if (ts > bestTs) { bestTs = ts; best = days[i]; }
+    }
+    return best ? { day: best, at: bestTs } : null;
+  }
+
+  /* 前置有没有做完 —— 用于在卡片上提示「建议先完成 Day 5」。
+     只提示，不拦人。 */
+  function unmetDeps(routeId, day) {
+    if (!day.deps || !day.deps.length) return [];
+    var d = load(routeId);
+    return day.deps.filter(function (id) { return !d.done[id]; });
+  }
+
+  global.KVProgress = {
+    version: VERSION,
+    available: canStore,
+    load: load,
+    save: save,
+    markDone: markDone,
+    undoSelf: undoSelf,
+    markVisited: markVisited,
+    nextDay: nextDay,
+    counts: counts,
+    lastActive: lastActive,
+    unmetDeps: unmetDeps
+  };
+})(typeof window !== 'undefined' ? window : this);
+</script>
+
+<script>
+/* ─── KVReplay ▸ v1 ─── */
+/**
+ * knowvori · 自动回放引擎
+ *
+ * 这不是视频。它把「标准操作」照着做一遍：拖真的滑块、按真的按钮，
+ * 数字仍然是页面自己算的。所以演示永远不会和真操作脱节。
+ *
+ * ── 为什么内联 ────────────────────────────────────────────────
+ * 课程是单文件交付，不能 import。这段代码要原样拷进每个课程的
+ * script 里。validate-lesson.mjs 第 19 项会检查各课程的
+ * `KVReplay ▸ v1` 标记是否一致，改这里就要同步到那 7 个文件。
+ *
+ * ── 平滑是怎么做到的 ──────────────────────────────────────────
+ * 回放不直接给 input.value 赋值，而是每帧写一点、每帧派发 input
+ * 事件，页面自己会跟着重算重绘。这样拖动是连续的，不是跳变。
+ * 缓动用 easeInOutCubic，起步和收尾都软。
+ */
+
+window.KVReplay = (function () {
+  'use strict';
+
+  // 系统设了「减少动态效果」时，不粗暴跳变，只是把时长压到 1/3
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var SPEED = reduce ? 0.34 : 1;
+
+  function ease(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function raf(fn) { return window.requestAnimationFrame(fn); }
+  function caf(id) { window.cancelAnimationFrame(id); }
+
+  function fire(el, type) {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  function pick(sel) {
+    return typeof sel === 'string' ? document.querySelector(sel) : sel;
+  }
+
+  function create(opt) {
+    var root = opt.root;
+    if (!root) return null;
+
+    var btn = root.querySelector('[data-replay-btn]');
+    var note = root.querySelector('[data-replay-note]');
+    var bar = root.querySelector('[data-replay-bar]');
+    var fill = bar && bar.firstElementChild;
+    var steps = opt.steps || [];
+    var cancels = [];          // 正在跑的所有缓动，暂停时全部掐断
+    var running = false;
+    var stopped = false;
+    var at = 0;
+
+    function abortAll() {
+      while (cancels.length) {
+        try { cancels.pop()(); } catch (e) { /* 已经结束的忽略 */ }
+      }
+    }
+
+    function say(t) { if (note && t) note.textContent = t; }
+
+    function progress() {
+      if (!fill) return;
+      fill.style.width = Math.round((at / Math.max(1, steps.length)) * 100) + '%';
+    }
+
+    function wait(ms) {
+      return new Promise(function (done) {
+        var id = setTimeout(done, Math.max(0, ms * SPEED));
+        cancels.push(function () { clearTimeout(id); done(); });
+      });
+    }
+
+    /** 逐帧回调。fn(缓动后的进度, 线性进度) */
+    function tween(ms, fn) {
+      var dur = Math.max(1, ms * SPEED);
+      var t0 = null, id = 0, dead = false;
+      return new Promise(function (done) {
+        function tick(ts) {
+          if (dead) return done();
+          if (t0 === null) t0 = ts;
+          var p = Math.min(1, (ts - t0) / dur);
+          try { fn(ease(p), p); } catch (e) { dead = true; return done(); }
+          if (p < 1) id = raf(tick); else done();
+        }
+        id = raf(tick);
+        cancels.push(function () { dead = true; caf(id); done(); });
+      });
+    }
+
+    /**
+     * 平滑拖动滑块 / 写值。
+     * 每帧都派发 input，页面才会跟着重算 —— 少了这一步，动画在跑，
+     * 但页面纹丝不动（这是最典型的「录出来是一张静止图」的原因）。
+     */
+    function slide(sel, to, ms) {
+      var el = pick(sel);
+      if (!el) return Promise.resolve();
+      var from = Number(el.value);
+      to = Number(to);
+      if (!isFinite(to) || from === to) return Promise.resolve();
+      return tween(ms == null ? 620 : ms, function (e) {
+        el.value = String(from + (to - from) * e);
+        fire(el, 'input');
+      }).then(function () {
+        el.value = String(to);
+        fire(el, 'input');
+        fire(el, 'change');
+      });
+    }
+
+    function click(sel) {
+      var el = pick(sel);
+      if (el) el.click();
+    }
+
+    function stop(msg) {
+      running = false;
+      stopped = true;
+      abortAll();
+      if (btn) {
+        btn.textContent = '▶ ' + (opt.label || '看一遍演示');
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      if (fill) fill.style.width = '0%';
+      if (msg) say(msg);
+    }
+
+    var api = {
+      say: say, wait: wait, tween: tween, slide: slide, click: click,
+      el: pick, fire: fire,
+      /** 逐帧打字，让文字是「写出来」的而不是整段蹦出来 */
+      type: function (sel, text, ms) {
+        var el = pick(sel);
+        if (!el) return Promise.resolve();
+        var base = el.value || '';
+        var n = text.length;
+        return tween(ms == null ? 1200 : ms, function (e) {
+          el.value = base + text.slice(0, Math.round(n * e));
+          fire(el, 'input');
+        }).then(function () {
+          el.value = base + text;
+          fire(el, 'input');
+        });
+      },
+      /** 读二元查找那类页面的当前状态，供文案使用（页面没有该结构时返回空串） */
+      state: function () {
+        if (typeof opt.state === 'function') return opt.state();
+        return '';
+      },
+      setNow: function (sel, v) {
+        var el = pick(sel);
+        if (!el) return;
+        el.value = String(v);
+        fire(el, 'input');
+        fire(el, 'change');
+      }
+    };
+
+    async function run() {
+      for (at = 0; at < steps.length; at++) {
+        if (stopped) return;
+        progress();
+        try {
+          await steps[at](api);
+        } catch (e) {
+          stop('演示中断：' + e.message);
+          return;
+        }
+      }
+      if (stopped) return;
+      // 最后一步的旁白要留得住。直接 stop() 会用结束语把它盖掉，
+      // 用户几乎看不到那句收尾的话（最该读的往往就是它）。
+      await wait(1600);
+      if (stopped) return;
+      stop(opt.done || '演示结束。现在轮到你动手了 —— 同样的操作，数字一样是现算的。');
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (running) { stop('已暂停。再点一次从头演示。'); return; }
+        running = true;
+        stopped = false;
+        at = 0;
+        if (fill) fill.style.width = '0%';
+        btn.textContent = '⏸ 暂停';
+        btn.setAttribute('aria-pressed', 'true');
+        if (opt.onStart) opt.onStart();
+        run();
+      });
+    }
+
+    // 用户一动手，立刻交还控制权。演示不该跟用户抢方向盘。
+    //
+    // 必须挂在 document 上，不能挂 root：用户真正会去碰的是下面那块
+    // 画布 / 滑块，它们不在 .replay 里，事件冒不到 root —— 挂在 root
+    // 上等于「只有点演示条本身才会停」，用户一动控制权纹丝不动。
+    document.addEventListener('pointerdown', function (e) {
+      // 点按钮本身是「暂停」，不算接管
+      if (btn && btn.contains(e.target)) return;
+      if (running) stop('你接手了，演示停在这一步。');
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      // 按钮获得焦点时，空格 / 回车是它自己的暂停键，不算接管；
+      // 但方向键、字母键等一律算用户插手 —— 否则「用键盘动滑块」就停不下来。
+      if (btn && btn.contains(e.target) && (e.key === ' ' || e.key === 'Enter')) return;
+      if (running) stop('你接手了，演示停在这一步。');
+    }, true);
+
+    return api;
+  }
+
+  return { create: create, reduce: reduce };
+})();
+</script>
+
+<script>
+/* ─── 这一天的交互演示（真算） ─── */
+(function () {
+
+  var rEl = document.getElementById('ratioSlider'), rVal = document.getElementById('ratioVal');
+  var out = document.getElementById('demoOut'), svg = document.getElementById('demoSvg');
+
+  function draw() {
+    var ratio = +rEl.value;
+    rVal.textContent = ratio + '×';
+
+    // E(x,y) = x^2 + ratio*y^2，学习率固定 —— 量级差越大，锯齿越明显
+    var lr = 0.09, x = 1, y = 1, path = [[x, y]];
+    for (var i = 0; i < 60; i++) {
+      x -= lr * 2 * x;
+      y -= lr * 2 * ratio * y;
+      if (!isFinite(x) || !isFinite(y)) break;
+      path.push([x, y]);
+    }
+
+    var X = function (v) { return 170 + v * 150; };
+    var Y = function (v) { return 95 - v * 78; };
+    var h = '';
+    [0.3, 0.6, 1].forEach(function (r) {
+      h += '<ellipse cx="170" cy="95" rx="' + (r * 150).toFixed(1) + '" ry="' + (r * 78).toFixed(1) +
+           '" fill="none" stroke="var(--line)"/>';
+    });
+    var d = '';
+    path.forEach(function (p, i) {
+      if (!isFinite(p[0]) || Math.abs(p[0]) > 2 || Math.abs(p[1]) > 2) return;
+      d += (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1);
+    });
+    h += '<path d="' + d + '" fill="none" stroke="var(--accent)" stroke-width="1.8"/>';
+    h += '<circle cx="' + X(1) + '" cy="' + Y(1) + '" r="3.5" fill="var(--ink)"/>';
+    svg.innerHTML = h;
+
+    var last = path[path.length - 1];
+    out.innerHTML = '特征 B 量级 <b>' + ratio + '×</b> · 60 步后 |x| = <b>' +
+      (isFinite(last[0]) ? Math.abs(last[0]).toFixed(4) : '∞') + '</b> · |y| = <b>' +
+      (isFinite(last[1]) ? Math.abs(last[1]).toFixed(4) : '∞') + '</b>';
+    window.kvState = function () { return { ratio: ratio, x: last[0], y: last[1] }; };
+  }
+
+  rEl.addEventListener('input', draw);
+  document.getElementById('resetBtn').addEventListener('click', function () { rEl.value = 10; draw(); });
+  draw();
+
+})();
+</script>
+
+<script>
+/* ─── 自测：答完才展开 ─── */
+(function () {
+  document.querySelectorAll('.quiz').forEach(function (quiz) {
+    quiz.querySelectorAll('.opt').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var qi = btn.dataset.q, oi = btn.dataset.o;
+        quiz.querySelectorAll('.opt').forEach(function (b) {
+          b.classList.remove('right', 'wrong');
+        });
+        var isRight = btn.dataset.correct === 'true';
+        btn.classList.add(isRight ? 'right' : 'wrong');
+        // 答错时把正确项也标出来 —— 否则用户只知道错了，不知道该选哪个
+        if (!isRight) {
+          var correct = quiz.querySelector('.opt[data-correct="true"]');
+          if (correct) correct.classList.add('right');
+        }
+        quiz.querySelectorAll('.why').forEach(function (w) { w.style.display = 'none'; w.hidden = true; });
+        var w = quiz.querySelector('[data-why="' + qi + '-' + oi + '"]');
+        if (w) { w.style.display = 'block'; w.hidden = false; }
+        quiz.dataset.answered = '1';
+      });
+    });
+  });
+})();
+</script>
+
+<script>
+/* ─── 动手区标记 ─── */
+(function () {
+  var b = document.getElementById('ranBtn');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    b.dataset.handsOn = '1';
+    b.dataset.tried = '1';
+    b.textContent = '记住了，我跑过了 ✓';
+    b.style.borderColor = 'var(--ok)';
+    b.style.color = 'var(--ok)';
+  });
+})();
+</script>
+
+<script>
+/* ─── KVReplaySteps ▸ day-04.html ▸ v1 ─── */
+(function () {
+  var root = document.getElementById('kvReplay');
+  if (!root || !window.KVReplay) return;
+  KVReplay.create({
+    root: root,
+    label: '看一遍演示',
+    done: '演示结束。现在你自己拖一下，数字一样是现算的。',
+    steps: [
+      async (r) => { r.say('量级一样时，路径几乎是直线走向原点的。');
+        await r.slide('#ratioSlider', 1, 800); await r.wait(1200); },
+      async (r) => { r.say('差 10 倍，开始出现折返。');
+        await r.slide('#ratioSlider', 10, 800); await r.wait(1200); },
+      async (r) => {
+        await r.slide('#ratioSlider', 100, 800); await r.wait(900);
+        var s = window.kvState ? window.kvState() : null;
+        r.say(s ? ('差 100 倍：60 步后 x 还剩 ' + Math.abs(s.x).toFixed(2) + '，几乎没动。') : '差 100 倍就是细长沟，几乎走不动。');
+        await r.wait(700);
+      },
+      async (r) => { r.say('所以训练前先缩放特征 —— 不改变答案，只改变地形。'); }
+    ]
+  });
+})();
+</script>
+
+<script>
+/* ─── 进度上报：三条都满足才算完成 ─── */
+(function () {
+  var CONFIG = { routeId: 'fit-5', dayId: 'day-04', nextFile: 'day-05.html' };
+  var box = document.getElementById('dayDone');
+  if (!box || !window.KVProgress) return;
+
+  var btn = document.getElementById('dayDoneBtn');
+  var hint = document.getElementById('dayDoneHint');
+
+  function quizzesAnswered() {
+    var qs = document.querySelectorAll('.quiz');
+    if (!qs.length) return true;
+    return [].every.call(qs, function (q) { return q.dataset.answered === '1'; });
+  }
+  function handsOnTried() {
+    var e = document.querySelector('[data-hands-on]');
+    return e ? e.dataset.tried === '1' : true;
+  }
+  function sync() {
+    var done = !!window.KVProgress.load(CONFIG.routeId).done[CONFIG.dayId];
+    btn.dataset.done = done ? '1' : '0';
+    btn.textContent = done ? '已完成 · 点一下撤销' : '今天学完了 ✓';
+    hint.textContent = done ? '进度已记录。回汇总页看下一步。' : '';
+  }
+  btn.addEventListener('click', function () {
+    var done = !!window.KVProgress.load(CONFIG.routeId).done[CONFIG.dayId];
+    if (done) { window.KVProgress.undoSelf(CONFIG.routeId, CONFIG.dayId); sync(); return; }
+    var missing = [];
+    if (!quizzesAnswered()) missing.push('自测还有没作答的');
+    if (!handsOnTried()) missing.push('动手还没点「我跑过了」');
+    if (missing.length) { hint.textContent = '还差：' + missing.join('；') + '。'; return; }
+    window.KVProgress.markDone(CONFIG.routeId, CONFIG.dayId);
+    sync();
+  });
+  window.KVProgress.markVisited(CONFIG.routeId, CONFIG.dayId);
+  sync();
+})();
+</script>
+</body>
+</html>

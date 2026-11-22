@@ -186,6 +186,37 @@
   .explain[hidden]{display:none !important}
   .answer-check{font-family:system-ui,sans-serif;font-size:13px;color:var(--ok);margin-top:8px;line-height:1.6}
 
+  /* ---------- 学习路线：回指 / 明天预告 / 完成按钮 ----------
+     只在「这条课属于某条路线」时才出现。独立的单课不要这些块。 */
+  .recap,.next-up{
+    border-left:2px solid var(--line);padding:10px 0 10px 14px;
+    margin:16px 0;font-size:14.5px;color:var(--ink-soft);
+  }
+  .recap{border-left-color:var(--accent)}
+  .recap strong,.next-up strong{color:var(--ink)}
+  .recap p,.next-up p{margin:0 0 6px}
+  .recap p:last-child,.next-up p:last-child{margin-bottom:0}
+  .recap a,.next-up a{color:var(--accent)}
+
+  .daydone{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    margin:22px 0 8px;padding:14px 15px;
+    border:1px solid var(--line);background:var(--surface,var(--paper));
+  }
+  .daydone-txt{flex:1 1 220px;min-width:0;font-size:13.5px;color:var(--ink-soft)}
+  .daydone-txt b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}
+  .daydone-btn{
+    min-height:42px;padding:9px 18px;border:1px solid var(--accent);
+    background:var(--accent);color:var(--paper);cursor:pointer;
+    font-family:var(--sans,system-ui);font-size:14.5px;font-weight:700;
+    transition:filter .15s;
+  }
+  .daydone-btn:hover{filter:brightness(1.08)}
+  .daydone-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .daydone-btn[data-done="1"]{background:var(--ok-soft,var(--soft));border-color:var(--ok,var(--accent));
+    color:var(--ok,var(--accent));cursor:pointer}
+  .daydone-hint{flex:0 0 100%;font-size:12.5px;color:var(--ink-soft);margin:0}
+
   /* ---------- 完成清单 ---------- */
   .checklist{list-style:none;padding:0;margin:18px 0}
   .checklist li{
@@ -252,6 +283,13 @@
     </ul>
   </div>
 </details>
+
+<!-- 回指（只在属于学习路线时保留；独立单课删掉整块）
+     三条都要有：昨天具体学了什么 / 今天哪里用到 / 回去的链接 -->
+<div class="recap">
+  <p><strong>昨天（Day ［N−1］）</strong>你搞清了［具体结论，不要写「学了注意力」这种废话］。</p>
+  <p>今天要用到它：［今天哪一步会依赖它］。如果没印象，<a href="day-［N−1］.html">回去看一眼 Day ［N−1］</a>，五分钟就够。</p>
+</div>
 
 <!-- ═══════════ 站 ═══════════ -->
 <section class="station">
@@ -418,7 +456,24 @@
     <li><input type="checkbox"><span>我知道［不这么做会怎样］</span></li>
     <li><input type="checkbox"><span>我能在一道没见过的新题上用出来</span></li>
   </ul>
+
+  <!-- 今天学完了：路线用它记进度（独立单课删掉本块，逻辑不报错） -->
+  <div class="daydone" id="dayDone">
+    <div class="daydone-txt">
+      <b>今天学完了吗？</b>
+      自测全部作答 + 动手题试过一次，就可以点右边的按钮。进度按天记，断几天回来还能接着走。
+    </div>
+    <button class="daydone-btn" type="button" id="dayDoneBtn" data-done="0">今天学完了 ✓</button>
+    <p class="daydone-hint" id="dayDoneHint"></p>
+  </div>
 </section>
+
+<!-- 明天预告（只在属于学习路线时保留）
+     「今天没讲什么」比「明天讲什么」更重要：防止用户以为漏学了去别处乱找 -->
+<div class="next-up">
+  <p><strong>明天（Day ［N+1］）</strong>：［明天要拆的卡点，以及它跟今天的关系］。</p>
+  <p><strong>今天没讲的</strong>：［明确点出本课刻意没覆盖的部分］，［在哪一天讲 / 或本路线不涉及］。</p>
+</div>
 
 <!-- ═══════════ 来源与边界（C7：诚实声明） ═══════════ -->
 <details>
@@ -465,6 +520,182 @@
 </footer>
 
 </div>
+
+<script>
+/* ─── KVProgress ▸ v1（与 assets/route-progress.js 同源）─── */
+/* ─── KVProgress ▸ v1 ─────────────────────────────────────────────
+   学习路线的进度读写。内联进 route.html 和每个 day-XX.html。
+
+   为什么要内联：课程是单文件交付，断网双击能开，不能外链脚本文件。
+
+   为什么进度单独存：进度属于「这条路线」，不属于某一天的课。
+   存进某节课里，换一节课就丢了。file:// 下同目录的 HTML 共享
+   localStorage（已实测 Edge / file 协议），所以汇总页和各天课程
+   能读写同一份。
+
+   三条纪律：
+   1. 所有读写都 try/catch。隐私模式下 localStorage 会直接抛异常，
+      不能让整页白屏 —— 存不了进度也得能学。
+   2. 数据格式带版本号。以后改了格式要能识别旧数据，而不是崩。
+   3. 读失败一律当「全部未开始」，不要猜。
+   ──────────────────────────────────────────────────────────────── */
+(function (global) {
+  'use strict';
+
+  var VERSION = 1;
+
+  function keyOf(routeId) {
+    return 'kv:route:' + routeId;
+  }
+
+  function empty(routeId) {
+    return { v: VERSION, route: routeId, done: {}, visited: {}, notes: {} };
+  }
+
+  /* 存不了的时候用什么顶上。
+     用内存对象兜住，这样同一次会话里进度还是「看起来在动」，
+     不保存也不会让用户以为操作失败了。 */
+  var memoryFallback = {};
+  var available = null;
+
+  function canStore() {
+    if (available !== null) return available;
+    try {
+      var probe = 'kv:probe';
+      global.localStorage.setItem(probe, '1');
+      global.localStorage.removeItem(probe);
+      available = true;
+    } catch (e) {
+      available = false;
+    }
+    return available;
+  }
+
+  function load(routeId) {
+    var base = empty(routeId);
+    if (!canStore()) return memoryFallback[routeId] || base;
+
+    try {
+      var raw = global.localStorage.getItem(keyOf(routeId));
+      if (!raw) return base;
+
+      var data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return base;
+
+      // 版本不匹配：当前只有 v1。未来加 v2 时在这里迁移，
+      // 不认识的就当空数据，不要拿结构不明的对象往下跑。
+      if (data.v !== VERSION) return base;
+
+      // 逐字段兜底：手改过的数据、半截写入都可能缺字段
+      return {
+        v: VERSION,
+        route: routeId,
+        done: data.done && typeof data.done === 'object' ? data.done : {},
+        visited: data.visited && typeof data.visited === 'object' ? data.visited : {},
+        notes: data.notes && typeof data.notes === 'object' ? data.notes : {}
+      };
+    } catch (e) {
+      // JSON 坏了、被别的程序写脏了 —— 当空数据，别崩
+      return base;
+    }
+  }
+
+  function save(routeId, data) {
+    data.v = VERSION;
+    data.route = routeId;
+    if (!canStore()) {
+      memoryFallback[routeId] = data;
+      return false;
+    }
+    try {
+      global.localStorage.setItem(keyOf(routeId), JSON.stringify(data));
+      return true;
+    } catch (e) {
+      // 配额满（手机尤其容易）、无痕模式 —— 退到内存，本次会话仍可用
+      memoryFallback[routeId] = data;
+      return false;
+    }
+  }
+
+  function markDone(routeId, dayId) {
+    var d = load(routeId);
+    if (!d.done[dayId]) d.done[dayId] = Date.now();
+    d.visited[dayId] = Date.now();
+    save(routeId, d);
+    return d;
+  }
+
+  function undoSelf(routeId, dayId) {
+    // 允许退回。点错了、想重学一遍都得能撤销，
+    // 不然一次误点就永久污染了进度。
+    var d = load(routeId);
+    delete d.done[dayId];
+    save(routeId, d);
+    return d;
+  }
+
+  function markVisited(routeId, dayId) {
+    var d = load(routeId);
+    d.visited[dayId] = Date.now();
+    save(routeId, d);
+    return d;
+  }
+
+  /* 第一个未完成的天 —— 汇总页「今天该学」用它。
+     注意不是「最后访问 + 1」：用户可能跳着学完了 Day 5 而 Day 3 没做。 */
+  function nextDay(routeId, days) {
+    var d = load(routeId);
+    for (var i = 0; i < days.length; i++) {
+      if (!d.done[days[i].id]) return days[i];
+    }
+    return null;
+  }
+
+  function counts(routeId, days) {
+    var d = load(routeId);
+    var done = 0;
+    for (var i = 0; i < days.length; i++) {
+      if (d.done[days[i].id]) done++;
+    }
+    return { done: done, total: days.length };
+  }
+
+  /* 「上次学到哪」—— 取最近一次访问且未完成的天。
+     完成的也算进来会让文案变成「上次学到 Day 5」，而 Day 5 早学完了，
+     说「你上次在 Day 6」才是有用的信息。 */
+  function lastActive(routeId, days) {
+    var d = load(routeId);
+    var best = null, bestTs = 0;
+    for (var i = 0; i < days.length; i++) {
+      var ts = d.visited[days[i].id] || 0;
+      if (ts > bestTs) { bestTs = ts; best = days[i]; }
+    }
+    return best ? { day: best, at: bestTs } : null;
+  }
+
+  /* 前置有没有做完 —— 用于在卡片上提示「建议先完成 Day 5」。
+     只提示，不拦人。 */
+  function unmetDeps(routeId, day) {
+    if (!day.deps || !day.deps.length) return [];
+    var d = load(routeId);
+    return day.deps.filter(function (id) { return !d.done[id]; });
+  }
+
+  global.KVProgress = {
+    version: VERSION,
+    available: canStore,
+    load: load,
+    save: save,
+    markDone: markDone,
+    undoSelf: undoSelf,
+    markVisited: markVisited,
+    nextDay: nextDay,
+    counts: counts,
+    lastActive: lastActive,
+    unmetDeps: unmetDeps
+  };
+})(typeof window !== 'undefined' ? window : this);
+</script>
 
 <script>
 /* ─── KVReplay ▸ v1（与 assets/replay-engine.js 同源）─── */
@@ -710,6 +941,81 @@ window.KVReplay = (function () {
       }
     ]
   });
+})();
+
+/* ─── 今天学完了：把进度上报给路线 ─────────────────────────────
+   只在属于某条路线时有意义。CONFIG 填了就启用，删掉就退回独立单课。
+   ① 自测题全部作答（不要求全对 —— 答错也是学习）
+   ② 动手题试过一次
+   ③ 用户显式点这个按钮
+   三条都满足才记完成。打开过就算完成是自欺。 */
+(function () {
+  var CONFIG = {
+    routeId: '',        // 例：'ml-21'。留空 = 本节课不属于任何路线
+    dayId: '',          // 例：'day-01'。必须和 route.html 的 CONFIG.days[].id 一致
+    nextFile: ''        // 例：'day-02.html'。留空则不显示「下一天」链接
+  };
+
+  var box = document.getElementById('dayDone');
+  if (!box || !window.KVProgress) return;
+  if (!CONFIG.routeId || !CONFIG.dayId) { box.style.display = 'none'; return; }
+
+  var btn = document.getElementById('dayDoneBtn');
+  var hint = document.getElementById('dayDoneHint');
+  var R = CONFIG.routeId, D = CONFIG.dayId;
+
+  function quizzesAnswered() {
+    var qs = document.querySelectorAll('.quiz');
+    if (!qs.length) return true;               // 没有自测题的课不算缺项
+    return [].every.call(qs, function (q) {
+      return q.dataset.answered === '1' || q.querySelector('[data-picked]');
+    });
+  }
+
+  function handsOnTried() {
+    // 动手区点过「运行 / 检查 / 看答案」任一个即可
+    var els = document.querySelectorAll('[data-hands-on]');
+    if (!els.length) return true;
+    return [].some.call(els, function (e) { return e.dataset.tried === '1'; });
+  }
+
+  function sync() {
+    var done = !!window.KVProgress.load(R).done[D];
+    btn.dataset.done = done ? '1' : '0';
+    btn.textContent = done ? '已完成 · 点一下撤销' : '今天学完了 ✓';
+    if (done) {
+      hint.textContent = CONFIG.nextFile
+        ? '进度已记录。回汇总页看下一步，或直接去下一天。'
+        : '进度已记录。回汇总页可以看整条路线。';
+    } else {
+      hint.textContent = '';
+    }
+  }
+
+  btn.addEventListener('click', function () {
+    var done = !!window.KVProgress.load(R).done[D];
+    if (done) {
+      // 撤销：点错了、想重学一遍都该能退回来
+      window.KVProgress.undoSelf(R, D);
+      sync();
+      return;
+    }
+
+    var missing = [];
+    if (!quizzesAnswered()) missing.push('自测题还有没作答的');
+    if (!handsOnTried()) missing.push('动手题还没试过');
+
+    if (missing.length) {
+      // 不拦死，但要说清差什么 —— 否则用户以为按钮坏了
+      hint.textContent = '还差：' + missing.join('；') + '。做完再点一次。';
+      return;
+    }
+
+    window.KVProgress.markDone(R, D);
+    sync();
+  });
+
+  sync();
 })();
 
 </script>

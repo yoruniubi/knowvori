@@ -21,6 +21,30 @@ node tools/inject-replay.mjs
 
 每课的演示脚本（滑哪个控件、按哪个按钮、说什么话）。被 `inject-replay.mjs` 引用。
 
+## build-route-demo.mjs
+
+生成 `skills/knowvori/examples/route-5days/` 整条示例路线：`route.html` 汇总页 + 5 份 `day-NN.html`。
+
+```bash
+node tools/build-route-demo.mjs
+```
+
+内容分三个文件，各管一件事：
+
+| 文件 | 管什么 |
+|---|---|
+| `route-demo-content.mjs` | 每天的内容：标题、卡点、术语、推导四句、三道自测、动手代码与预期输出、明天预告 |
+| `route-demo-parts.mjs` | 每天的真算演示（滑块一动就重算重绘）+ 自动回放脚本 |
+| `build-route-demo.mjs` | 只负责拼装 HTML，并把 `replay-engine.js` / `route-progress.js` 内联进去 |
+
+**为什么用生成器而不是手写 6 个 HTML**：六份文件共用同一套结构，手写必然漂移——某天忘了加 `class="recap"`，某天把 `data-correct` 写成 `data-right`，校验器就会开始报假警报。生成器让结构只有一处定义，内容各写各的。
+
+生成是幂等的：同样输入两次跑出字节完全一致的输出，`md5sum` 可验证。
+
+## inline-engines.mjs
+
+把引擎源码塞进模板里的占位符（`route-template.html` 用）。内含保护：检测到引擎注释里出现 `<script` 字面量就拒绝，因为内联会提前闭合标签。这条也踩过坑——3D 课曾因注释里写了 `<script src>` 而整块失效。
+
 ## audit-deps/
 
 只为 `skills/knowvori/scripts/audit-page.mjs` 提供 `playwright-core` —— 审计脚本本身没有 `package.json`，靠这个目录找到浏览器驱动。

@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day 2 · 梯度下降：蒙着眼下山 — 5 天看懂模型怎么学</title>
+<style>
+  :root{
+    --paper:#fbfaf7;--surface:#fff;--ink:#1c1b19;--ink-soft:#5c5850;--line:#e2ded6;
+    --accent:#b45309;--accent-soft:#fdf3e3;--ok:#15803d;--ok-soft:#eefbf1;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI","Noto Sans SC",sans-serif;
+  }
+  [data-theme="dark"]{
+    --paper:#14130f;--surface:#1c1a16;--ink:#eae6dc;--ink-soft:#a09a8c;--line:#332f27;
+    --accent:#f0a34a;--accent-soft:#2a2115;--ok:#63c98a;--ok-soft:#16241b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:26px 17px 70px}
+  .replay{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0;padding:9px 11px;
+    border:1px dashed var(--line);background:var(--surface)}
+  .replay-btn{min-height:40px;padding:6px 14px;border:1px solid var(--line);background:var(--paper);
+    color:var(--ink);cursor:pointer;font-family:var(--mono);font-size:12.5px;font-weight:700;
+    display:inline-flex;align-items:center;gap:7px}
+  .replay-btn:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .replay-btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+  [data-theme="dark"] .replay-btn[aria-pressed="true"]{color:#14130f}
+  .replay-note{flex:1 1 220px;min-width:0;font-size:12.5px;line-height:1.6;color:var(--ink-soft)}
+  .replay-bar{flex:0 0 100%;height:2px;background:var(--line);overflow:hidden}
+  .replay-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+  .top{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;color:var(--accent);
+    text-transform:uppercase;margin-bottom:8px}
+  h1{font-size:clamp(22px,3.6vw,29px);line-height:1.3;margin:0 0 12px;letter-spacing:-.01em}
+  .goal{font-size:16.5px;color:var(--ink-soft);margin:0 0 8px}
+  .goal b{color:var(--ink)}
+  .crumb{font-size:13px;margin:0 0 22px}
+  .crumb a{color:var(--accent)}
+  .recap{border-left:2px solid var(--accent);padding:9px 0 9px 13px;margin:0 0 20px;
+    font-size:14.5px;color:var(--ink-soft)}
+  .recap p{margin:0 0 5px}.recap p:last-child{margin:0}
+  .recap a{color:var(--accent)}
+  section.stn{margin:0 0 30px}
+  .stn-no{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--accent);
+    text-transform:uppercase;margin-bottom:5px}
+  h2{font-size:max(17px,1.15em);line-height:1.4;margin:0 0 10px}
+  .jargon{background:var(--accent-soft);border-left:2px solid var(--accent);
+    padding:11px 13px;margin:14px 0;font-size:14.5px}
+  .jargon p{margin:0 0 7px}.jargon p:last-child{margin:0}
+  .term{font-weight:700;color:var(--accent)}
+  .derive{border:1px solid var(--line);background:var(--surface);padding:12px 14px;
+    margin:14px 0;font-size:14.5px}
+  .derive div{margin-bottom:7px;padding-left:54px;position:relative}
+  .derive div:last-child{margin:0}
+  .tag{position:absolute;left:0;top:2px;font-family:var(--mono);font-size:10.5px;
+    padding:1px 6px;background:var(--accent-soft);color:var(--accent);font-weight:700}
+  .derive .counter{padding-top:8px;border-top:1px dashed var(--line);margin-top:9px}
+  .demo{border:1px solid var(--line);background:var(--surface);padding:13px;margin:16px 0}
+  .demo-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--accent);
+    text-transform:uppercase;margin-bottom:11px}
+  .ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:11px;
+    font-size:13.5px;color:var(--ink-soft)}
+  .ctrl label{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:0}
+  input[type=range]{flex:1;min-width:80px;min-height:40px;accent-color:var(--accent)}
+  .val{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink);
+    min-width:46px;font-variant-numeric:tabular-nums}
+  .btn-reset{min-height:40px;padding:5px 12px;border:1px solid var(--line);background:var(--paper);
+    color:var(--ink-soft);cursor:pointer;font-family:var(--mono);font-size:12px}
+  .btn-reset:hover{border-color:var(--accent);color:var(--accent)}
+  .out{font-size:13.5px;line-height:1.65;color:var(--ink-soft);
+    padding-top:9px;border-top:1px dashed var(--line);margin-top:9px}
+  .out b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .quiz{border:1px solid var(--line);background:var(--surface);padding:13px;margin:0 0 11px}
+  .q{font-size:15px;font-weight:600;margin:0 0 10px;line-height:1.6}
+  .opts{display:flex;flex-direction:column;gap:7px}
+  .opt{text-align:left;min-height:40px;padding:9px 12px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink);cursor:pointer;font-family:inherit;font-size:14.5px;
+    line-height:1.55}
+  .opt:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .opt.right{border-color:var(--ok);background:var(--ok-soft)}
+  .opt.wrong{border-color:#c2410c;background:#fdf0e9}
+  [data-theme="dark"] .opt.wrong{background:#2a1712}
+  .why{display:none;font-size:13.5px;line-height:1.7;margin-top:9px;padding:9px 11px;
+    background:var(--accent-soft);border-left:2px solid var(--accent);color:var(--ink-soft)}
+  pre{background:var(--surface);border:1px solid var(--line);padding:12px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.5px;line-height:1.65;margin:12px 0}
+  code{font-family:var(--mono);font-size:.92em;background:var(--accent-soft);padding:1px 5px}
+  pre code{background:none;padding:0}
+  .note-box{border:1px solid var(--line);background:var(--surface);padding:11px 13px;
+    font-size:13.5px;line-height:1.7;margin:12px 0}
+  .checklist{list-style:none;padding:0;margin:0}
+  .checklist li{display:flex;gap:9px;align-items:flex-start;padding:7px 0;
+    border-bottom:1px solid var(--line);font-size:14.5px}
+  .checklist li:last-child{border:0}
+  .checklist input{margin-top:5px;width:16px;height:16px;accent-color:var(--accent);flex:0 0 auto}
+  .daydone{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:20px 0 8px;
+    padding:14px 15px;border:1px solid var(--line);background:var(--surface)}
+  .daydone-txt{flex:1 1 220px;min-width:0;font-size:13.5px;color:var(--ink-soft)}
+  .daydone-txt b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}
+  .daydone-btn{min-height:42px;padding:9px 18px;border:1px solid var(--accent);
+    background:var(--accent);color:var(--paper);cursor:pointer;font-family:var(--sans);
+    font-size:14.5px;font-weight:700}
+  [data-theme="dark"] .daydone-btn{color:#14130f}
+  .daydone-btn[data-done="1"]{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+  .daydone-hint{flex:0 0 100%;font-size:12.5px;color:var(--ink-soft);margin:0}
+  .next-up{border-left:2px solid var(--line);padding:9px 0 9px 13px;margin:20px 0 0;
+    font-size:14.5px;color:var(--ink-soft)}
+  .next-up p{margin:0 0 5px}.next-up p:last-child{margin:0}
+  .next-up a{color:var(--accent)}
+  @media (max-width:520px){
+    .wrap{padding:20px 13px 56px}
+    .derive div{padding-left:0;padding-top:21px}
+    .tag{top:0}
+    .ctrl label{flex:1 1 100%}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+  <button id="themeBtn" type="button" aria-label="切换深浅色"
+    style="position:fixed;top:12px;right:12px;z-index:20;min-width:40px;min-height:40px;
+    border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);
+    cursor:pointer;font-size:15px;line-height:1;border-radius:0">◐</button>
+  <script>
+    (function () {
+      var b = document.getElementById('themeBtn');
+      var KEY = 'kv:theme';
+      var saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = saved || (sysDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+      b.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        try { localStorage.setItem(KEY, t); } catch (e) {}
+      });
+    })();
+  </script>
+<div class="wrap">
+  <div class="top">Day 2 / 5 · 5 天看懂模型怎么学</div>
+  <h1>梯度下降：蒙着眼下山</h1>
+  <p class="goal">学完这一天，<b>能手算一步梯度下降，并说清每一步为什么往那个方向走</b>。</p>
+  <p class="crumb"><a href="route.html">← 回到路线总览</a></p>
+
+  <div class="recap">
+    <p>昨天你搞清了「拟合得好 = 平方误差和尽量小」：误差是个能算出来的数，不是感觉。</p>
+    <p>如果没印象，<a href="day-01.html">回去看 Day 1</a>，十分钟就够。</p>
+  </div>
+
+  <section class="stn">
+    <div class="stn-no">第 1 站 · 卡点</div>
+    <h2>不知道最优在哪，就顺着坡往下走</h2>
+    <p>目标很明确了：找让平方误差最小的那条线。但线有无限多条，总不能一条条试。</p>
+
+    <div class="jargon">
+      <p><span class="term">「梯度」</span>函数在当前点上「往哪个方向涨得最快」。所以往它的反方向走，就是下降最快的方向。</p>
+      <p style="color:var(--ink-soft);font-size:14px">就像站在山坡上用脚试四周哪边最陡，然后往最陡的反方向走。</p>
+      <p><span class="term">「学习率」</span>每一步走多远。走太小半天到不了，走太大可能一脚跨过谷底。</p>
+      <p style="color:var(--ink-soft);font-size:14px">就像下山时每步的步幅。</p>
+    </div>
+
+    <div class="derive">
+      <div><span class="tag">现象</span>线由「截距 b」和「斜率 k」两个数决定，所以误差其实是这两个数的函数，像一张起伏的地形图。</div>
+      <div><span class="tag">为什么</span>梯度告诉你当前位置哪边最陡。沿梯度反方向挪一小步，误差一定变小 —— 只要步子别太大。</div>
+      <div><span class="tag">所以</span>于是有了梯度下降：算梯度 → 往反方向迈一步 → 重算 → 再迈。反复几十次就滚到谷底附近。</div>
+      <div class="counter"><span class="tag">不这样</span>假如不用梯度、改成随机试 k 和 b，维度一高（真实模型几十亿参数）就完全没法试 —— 随机乱撞在高维空间几乎碰不到好解。</div>
+    </div>
+
+    <div class="replay" id="kvReplay">
+      <button class="replay-btn" type="button" data-replay-btn aria-pressed="false">▶ 看一遍演示</button>
+      <span class="replay-note" data-replay-note aria-live="polite"></span>
+      <div class="replay-bar" data-replay-bar aria-hidden="true"><i></i></div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">动手试 · 拖动学习率，看它怎么下山</div>
+      <div class="ctrl"><label>学习率 <input type="range" id="lrSlider" min="1" max="130" value="20" step="1"></label>
+      <span class="val" id="lrVal">0.20</span>
+      <button class="btn-reset" id="resetBtn" type="button">重置</button>
+      </div>
+      <svg id="demoSvg" viewBox="0 0 340 190" width="100%" height="190" role="img" aria-label="损失曲线与迭代点"></svg>
+      <div id="demoOut" class="out">［迭代轨迹会画在这里］</div>
+    </div>
+  </section>
+
+  <section class="stn">
+    <div class="stn-no">第 2 站 · 自测</div>
+    <h2>先答，答完才看解释</h2>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin:0 0 12px">
+      反馈类型：<b>客观校验</b>（每题有唯一正确答案，选完立刻判定）。
+      第 3 题是<b>迁移题</b> —— 换一个没在这节课出现过的新情境。
+    </p>
+
+    <div class="quiz" data-answered="0">
+      <p class="q">1. 误差函数 E(k) 在 k=0 处的梯度是负数（说明往 k 增大方向 E 在下降）。你该怎么做？</p>
+      <div class="opts">
+        <button class="opt" type="button" data-q="0" data-o="0" data-correct="true">增大 k</button>
+        <button class="opt" type="button" data-q="0" data-o="1" data-correct="false">减小 k</button>
+        <button class="opt" type="button" data-q="0" data-o="2" data-correct="false">不动，梯度为负说明已经最低</button>
+        <button class="opt" type="button" data-q="0" data-o="3" data-correct="false">随便选一个试试</button>
+      </div>
+      <div class="explain why" data-why="0-0" hidden>梯度的反方向就是 k 增大的方向，因为梯度是负的，取反得正。这正是「往坡的反方向走」。</div>
+      <div class="explain why" data-why="0-1" hidden>梯度的反方向才是下降方向。梯度为负 → 反方向为正 → 应该增大 k。</div>
+      <div class="explain why" data-why="0-2" hidden>梯度为 0 才是最低点。为负说明还在下坡。</div>
+      <div class="explain why" data-why="0-3" hidden>有明确方向，不用瞎试。</div>
+    </div>
+
+    <div class="quiz" data-answered="0">
+      <p class="q">2. 学习率调得很大会发生什么？</p>
+      <div class="opts">
+        <button class="opt" type="button" data-q="1" data-o="0" data-correct="true">可能在谷底两侧来回跳，甚至越跳越远（发散）</button>
+        <button class="opt" type="button" data-q="1" data-o="1" data-correct="false">收敛更快，总是好事</button>
+        <button class="opt" type="button" data-q="1" data-o="2" data-correct="false">完全没影响</button>
+        <button class="opt" type="button" data-q="1" data-o="3" data-correct="false">会自动缩小</button>
+      </div>
+      <div class="explain why" data-why="1-0" hidden>步子太大，一步跨过谷底落到对面更高处，下一步跨回来更高，误差越滚越大 —— 这就是发散。</div>
+      <div class="explain why" data-why="1-1" hidden>在一定范围内更快，超过临界值就发散。</div>
+      <div class="explain why" data-why="1-2" hidden>学习率是最敏感的旋钮之一。</div>
+      <div class="explain why" data-why="1-3" hidden>除非专门写了衰减策略，否则它不会自己变。</div>
+    </div>
+
+    <div class="quiz" data-answered="0">
+      <p class="q">3. 迁移：如果损失地形是一条又窄又长的沟（一个方向陡、一个方向平），固定的学习率会遇到什么麻烦？</p>
+      <div class="opts">
+        <button class="opt" type="button" data-q="2" data-o="0" data-correct="true">陡的方向容易震荡，平的方向又走得太慢 —— 所以要做特征缩放</button>
+        <button class="opt" type="button" data-q="2" data-o="1" data-correct="false">没有任何麻烦</button>
+        <button class="opt" type="button" data-q="2" data-o="2" data-correct="false">会一步就收敛</button>
+        <button class="opt" type="button" data-q="2" data-o="3" data-correct="false">陡的方向会先收敛，然后整体就好了</button>
+      </div>
+      <div class="explain why" data-why="2-0" hidden>这是真实数据上最常见的病：不同特征量级差太多，地形就成了细长沟。学习率按陡方向调就够小、在平方向慢得像爬；按平方向调就在陡方向炸。Day 4 讲怎么治。</div>
+      <div class="explain why" data-why="2-1" hidden>沟越细长越麻烦。</div>
+      <div class="explain why" data-why="2-2" hidden>不会。细长沟是梯度下降最经典的困难。</div>
+      <div class="explain why" data-why="2-3" hidden>陡的方向反而会震荡，拖住整体。</div>
+    </div>
+  </section>
+
+  <section class="stn">
+    <div class="stn-no">第 3 站 · 动手</div>
+    <h2>手算一步梯度下降，确认方向没搞反</h2>
+    <pre><code>// E(k) = (k-3)^2，最小值显然在 k=3
+const grad = (k) =&gt; 2 * (k - 3);
+const lr = 0.1;
+
+let k = 0;
+for (let i = 1; i &lt;= 5; i++) {
+  k = k - lr * grad(k);          // 往梯度反方向走
+  console.log(`step ${i}: k=${k.toFixed(4)} E=${((k-3)**2).toFixed(4)}`);
+}</code></pre>
+    <div class="note-box">
+      <strong>预期输出</strong><br>
+      <code style="white-space:pre-wrap">step 1: k=0.6000 E=5.7600
+step 2: k=1.0800 E=3.6864
+step 3: k=1.4760 E=2.3282
+step 4: k=1.8264 E=1.4559
+step 5: k=2.1394 E=0.7283</code><br>
+      <span style="font-size:13px;color:var(--ink-soft)">已运行。k 单调靠近 3、E 单调下降，就是「方向对了」的样子。把 lr 改成 1.1 会看到 E 开始震荡变大。</span>
+    </div>
+    <button class="btn-reset" type="button" id="ranBtn" data-hands-on="0"
+      style="min-height:40px;padding:7px 14px">我跑过这段代码了</button>
+  </section>
+
+  <section class="stn">
+    <div class="stn-no">第 4 站 · 完成清单</div>
+    <h2>勾完，这一天就算过关</h2>
+    <ul class="checklist">
+      <li><input type="checkbox"><span>我能不看资料说出「能手算一步梯度下降，并说清每一步为什么往那个方向走」</span></li>
+      <li><input type="checkbox"><span>我能解释为什么，而不是只记住结论</span></li>
+      <li><input type="checkbox"><span>我知道不这么做会怎样</span></li>
+      <li><input type="checkbox"><span>我能在一道没见过的新题上用出来</span></li>
+    </ul>
+
+    <div class="daydone" id="dayDone">
+      <div class="daydone-txt">
+        <b>今天学完了吗？</b>
+        自测全部作答 + 动手跑过一次，就可以点右边。进度按天记，断几天回来还能接着走。
+      </div>
+      <button class="daydone-btn" type="button" id="dayDoneBtn" data-done="0">今天学完了 ✓</button>
+      <p class="daydone-hint" id="dayDoneHint"></p>
+    </div>
+  </section>
+
+  <div class="next-up">
+    <p><strong>明天（Day 3）</strong>：今天线能自己往最优走了。但「走多快」还没讲清 —— 明天专门拆学习率。</p>
+    <p><strong>今天没讲的</strong>：SGD、动量、Adam 等优化器 —— 只用最朴素的批量梯度下降，够看清原理。</p>
+    <p><a href="day-03.html">直接去 Day 3 →</a> · <a href="route.html">回到路线总览</a></p>
+  </div>
+</div>
+
+<script>
+/* ─── KVProgress ▸ v1 ─── */
+/* ─── KVProgress ▸ v1 ─────────────────────────────────────────────
+   学习路线的进度读写。内联进 route.html 和每个 day-XX.html。
+
+   为什么要内联：课程是单文件交付，断网双击能开，不能外链脚本文件。
+
+   为什么进度单独存：进度属于「这条路线」，不属于某一天的课。
+   存进某节课里，换一节课就丢了。file:// 下同目录的 HTML 共享
+   localStorage（已实测 Edge / file 协议），所以汇总页和各天课程
+   能读写同一份。
+
+   三条纪律：
+   1. 所有读写都 try/catch。隐私模式下 localStorage 会直接抛异常，
+      不能让整页白屏 —— 存不了进度也得能学。
+   2. 数据格式带版本号。以后改了格式要能识别旧数据，而不是崩。
+   3. 读失败一律当「全部未开始」，不要猜。
+   ──────────────────────────────────────────────────────────────── */
+(function (global) {
+  'use strict';
+
+  var VERSION = 1;
+
+  function keyOf(routeId) {
+    return 'kv:route:' + routeId;
+  }
+
+  function empty(routeId) {
+    return { v: VERSION, route: routeId, done: {}, visited: {}, notes: {} };
+  }
+
+  /* 存不了的时候用什么顶上。
+     用内存对象兜住，这样同一次会话里进度还是「看起来在动」，
+     不保存也不会让用户以为操作失败了。 */
+  var memoryFallback = {};
+  var available = null;
+
+  function canStore() {
+    if (available !== null) return available;
+    try {
+      var probe = 'kv:probe';
+      global.localStorage.setItem(probe, '1');
+      global.localStorage.removeItem(probe);
+      available = true;
+    } catch (e) {
+      available = false;
+    }
+    return available;
+  }
+
+  function load(routeId) {
+    var base = empty(routeId);
+    if (!canStore()) return memoryFallback[routeId] || base;
+
+    try {
+      var raw = global.localStorage.getItem(keyOf(routeId));
+      if (!raw) return base;
+
+      var data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return base;
+
+      // 版本不匹配：当前只有 v1。未来加 v2 时在这里迁移，
+      // 不认识的就当空数据，不要拿结构不明的对象往下跑。
+      if (data.v !== VERSION) return base;
+
+      // 逐字段兜底：手改过的数据、半截写入都可能缺字段
+      return {
+        v: VERSION,
+        route: routeId,
+        done: data.done && typeof data.done === 'object' ? data.done : {},
+        visited: data.visited && typeof data.visited === 'object' ? data.visited : {},
+        notes: data.notes && typeof data.notes === 'object' ? data.notes : {}
+      };
+    } catch (e) {
+      // JSON 坏了、被别的程序写脏了 —— 当空数据，别崩
+      return base;
+    }
+  }
+
+  function save(routeId, data) {
+    data.v = VERSION;
+    data.route = routeId;
+    if (!canStore()) {
+      memoryFallback[routeId] = data;
+      return false;
+    }
+    try {
+      global.localStorage.setItem(keyOf(routeId), JSON.stringify(data));
+      return true;
+    } catch (e) {
+      // 配额满（手机尤其容易）、无痕模式 —— 退到内存，本次会话仍可用
+      memoryFallback[routeId] = data;
+      return false;
+    }
+  }
+
+  function markDone(routeId, dayId) {
+    var d = load(routeId);
+    if (!d.done[dayId]) d.done[dayId] = Date.now();
+    d.visited[dayId] = Date.now();
+    save(routeId, d);
+    return d;
+  }
+
+  function undoSelf(routeId, dayId) {
+    // 允许退回。点错了、想重学一遍都得能撤销，
+    // 不然一次误点就永久污染了进度。
+    var d = load(routeId);
+    delete d.done[dayId];
+    save(routeId, d);
+    return d;
+  }
+
+  function markVisited(routeId, dayId) {
+    var d = load(routeId);
+    d.visited[dayId] = Date.now();
+    save(routeId, d);
+    return d;
+  }
+
+  /* 第一个未完成的天 —— 汇总页「今天该学」用它。
+     注意不是「最后访问 + 1」：用户可能跳着学完了 Day 5 而 Day 3 没做。 */
+  function nextDay(routeId, days) {
+    var d = load(routeId);
+    for (var i = 0; i < days.length; i++) {
+      if (!d.done[days[i].id]) return days[i];
+    }
+    return null;
+  }
+
+  function counts(routeId, days) {
+    var d = load(routeId);
+    var done = 0;
+    for (var i = 0; i < days.length; i++) {
+      if (d.done[days[i].id]) done++;
+    }
+    return { done: done, total: days.length };
+  }
+
+  /* 「上次学到哪」—— 取最近一次访问且未完成的天。
+     完成的也算进来会让文案变成「上次学到 Day 5」，而 Day 5 早学完了，
+     说「你上次在 Day 6」才是有用的信息。 */
+  function lastActive(routeId, days) {
+    var d = load(routeId);
+    var best = null, bestTs = 0;
+    for (var i = 0; i < days.length; i++) {
+      var ts = d.visited[days[i].id] || 0;
+      if (ts > bestTs) { bestTs = ts; best = days[i]; }
+    }
+    return best ? { day: best, at: bestTs } : null;
+  }
+
+  /* 前置有没有做完 —— 用于在卡片上提示「建议先完成 Day 5」。
+     只提示，不拦人。 */
+  function unmetDeps(routeId, day) {
+    if (!day.deps || !day.deps.length) return [];
+    var d = load(routeId);
+    return day.deps.filter(function (id) { return !d.done[id]; });
+  }
+
+  global.KVProgress = {
+    version: VERSION,
+    available: canStore,
+    load: load,
+    save: save,
+    markDone: markDone,
+    undoSelf: undoSelf,
+    markVisited: markVisited,
+    nextDay: nextDay,
+    counts: counts,
+    lastActive: lastActive,
+    unmetDeps: unmetDeps
+  };
+})(typeof window !== 'undefined' ? window : this);
+</script>
+
+<script>
+/* ─── KVReplay ▸ v1 ─── */
+/**
+ * knowvori · 自动回放引擎
+ *
+ * 这不是视频。它把「标准操作」照着做一遍：拖真的滑块、按真的按钮，
+ * 数字仍然是页面自己算的。所以演示永远不会和真操作脱节。
+ *
+ * ── 为什么内联 ────────────────────────────────────────────────
+ * 课程是单文件交付，不能 import。这段代码要原样拷进每个课程的
+ * script 里。validate-lesson.mjs 第 19 项会检查各课程的
+ * `KVReplay ▸ v1` 标记是否一致，改这里就要同步到那 7 个文件。
+ *
+ * ── 平滑是怎么做到的 ──────────────────────────────────────────
+ * 回放不直接给 input.value 赋值，而是每帧写一点、每帧派发 input
+ * 事件，页面自己会跟着重算重绘。这样拖动是连续的，不是跳变。
+ * 缓动用 easeInOutCubic，起步和收尾都软。
+ */
+
+window.KVReplay = (function () {
+  'use strict';
+
+  // 系统设了「减少动态效果」时，不粗暴跳变，只是把时长压到 1/3
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var SPEED = reduce ? 0.34 : 1;
+
+  function ease(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  function raf(fn) { return window.requestAnimationFrame(fn); }
+  function caf(id) { window.cancelAnimationFrame(id); }
+
+  function fire(el, type) {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  function pick(sel) {
+    return typeof sel === 'string' ? document.querySelector(sel) : sel;
+  }
+
+  function create(opt) {
+    var root = opt.root;
+    if (!root) return null;
+
+    var btn = root.querySelector('[data-replay-btn]');
+    var note = root.querySelector('[data-replay-note]');
+    var bar = root.querySelector('[data-replay-bar]');
+    var fill = bar && bar.firstElementChild;
+    var steps = opt.steps || [];
+    var cancels = [];          // 正在跑的所有缓动，暂停时全部掐断
+    var running = false;
+    var stopped = false;
+    var at = 0;
+
+    function abortAll() {
+      while (cancels.length) {
+        try { cancels.pop()(); } catch (e) { /* 已经结束的忽略 */ }
+      }
+    }
+
+    function say(t) { if (note && t) note.textContent = t; }
+
+    function progress() {
+      if (!fill) return;
+      fill.style.width = Math.round((at / Math.max(1, steps.length)) * 100) + '%';
+    }
+
+    function wait(ms) {
+      return new Promise(function (done) {
+        var id = setTimeout(done, Math.max(0, ms * SPEED));
+        cancels.push(function () { clearTimeout(id); done(); });
+      });
+    }
+
+    /** 逐帧回调。fn(缓动后的进度, 线性进度) */
+    function tween(ms, fn) {
+      var dur = Math.max(1, ms * SPEED);
+      var t0 = null, id = 0, dead = false;
+      return new Promise(function (done) {
+        function tick(ts) {
+          if (dead) return done();
+          if (t0 === null) t0 = ts;
+          var p = Math.min(1, (ts - t0) / dur);
+          try { fn(ease(p), p); } catch (e) { dead = true; return done(); }
+          if (p < 1) id = raf(tick); else done();
+        }
+        id = raf(tick);
+        cancels.push(function () { dead = true; caf(id); done(); });
+      });
+    }
+
+    /**
+     * 平滑拖动滑块 / 写值。
+     * 每帧都派发 input，页面才会跟着重算 —— 少了这一步，动画在跑，
+     * 但页面纹丝不动（这是最典型的「录出来是一张静止图」的原因）。
+     */
+    function slide(sel, to, ms) {
+      var el = pick(sel);
+      if (!el) return Promise.resolve();
+      var from = Number(el.value);
+      to = Number(to);
+      if (!isFinite(to) || from === to) return Promise.resolve();
+      return tween(ms == null ? 620 : ms, function (e) {
+        el.value = String(from + (to - from) * e);
+        fire(el, 'input');
+      }).then(function () {
+        el.value = String(to);
+        fire(el, 'input');
+        fire(el, 'change');
+      });
+    }
+
+    function click(sel) {
+      var el = pick(sel);
+      if (el) el.click();
+    }
+
+    function stop(msg) {
+      running = false;
+      stopped = true;
+      abortAll();
+      if (btn) {
+        btn.textContent = '▶ ' + (opt.label || '看一遍演示');
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      if (fill) fill.style.width = '0%';
+      if (msg) say(msg);
+    }
+
+    var api = {
+      say: say, wait: wait, tween: tween, slide: slide, click: click,
+      el: pick, fire: fire,
+      /** 逐帧打字，让文字是「写出来」的而不是整段蹦出来 */
+      type: function (sel, text, ms) {
+        var el = pick(sel);
+        if (!el) return Promise.resolve();
+        var base = el.value || '';
+        var n = text.length;
+        return tween(ms == null ? 1200 : ms, function (e) {
+          el.value = base + text.slice(0, Math.round(n * e));
+          fire(el, 'input');
+        }).then(function () {
+          el.value = base + text;
+          fire(el, 'input');
+        });
+      },
+      /** 读二元查找那类页面的当前状态，供文案使用（页面没有该结构时返回空串） */
+      state: function () {
+        if (typeof opt.state === 'function') return opt.state();
+        return '';
+      },
+      setNow: function (sel, v) {
+        var el = pick(sel);
+        if (!el) return;
+        el.value = String(v);
+        fire(el, 'input');
+        fire(el, 'change');
+      }
+    };
+
+    async function run() {
+      for (at = 0; at < steps.length; at++) {
+        if (stopped) return;
+        progress();
+        try {
+          await steps[at](api);
+        } catch (e) {
+          stop('演示中断：' + e.message);
+          return;
+        }
+      }
+      if (stopped) return;
+      // 最后一步的旁白要留得住。直接 stop() 会用结束语把它盖掉，
+      // 用户几乎看不到那句收尾的话（最该读的往往就是它）。
+      await wait(1600);
+      if (stopped) return;
+      stop(opt.done || '演示结束。现在轮到你动手了 —— 同样的操作，数字一样是现算的。');
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (running) { stop('已暂停。再点一次从头演示。'); return; }
+        running = true;
+        stopped = false;
+        at = 0;
+        if (fill) fill.style.width = '0%';
+        btn.textContent = '⏸ 暂停';
+        btn.setAttribute('aria-pressed', 'true');
+        if (opt.onStart) opt.onStart();
+        run();
+      });
+    }
+
+    // 用户一动手，立刻交还控制权。演示不该跟用户抢方向盘。
+    //
+    // 必须挂在 document 上，不能挂 root：用户真正会去碰的是下面那块
+    // 画布 / 滑块，它们不在 .replay 里，事件冒不到 root —— 挂在 root
+    // 上等于「只有点演示条本身才会停」，用户一动控制权纹丝不动。
+    document.addEventListener('pointerdown', function (e) {
+      // 点按钮本身是「暂停」，不算接管
+      if (btn && btn.contains(e.target)) return;
+      if (running) stop('你接手了，演示停在这一步。');
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      // 按钮获得焦点时，空格 / 回车是它自己的暂停键，不算接管；
+      // 但方向键、字母键等一律算用户插手 —— 否则「用键盘动滑块」就停不下来。
+      if (btn && btn.contains(e.target) && (e.key === ' ' || e.key === 'Enter')) return;
+      if (running) stop('你接手了，演示停在这一步。');
+    }, true);
+
+    return api;
+  }
+
+  return { create: create, reduce: reduce };
+})();
+</script>
+
+<script>
+/* ─── 这一天的交互演示（真算） ─── */
+(function () {
+
+  var lrEl = document.getElementById('lrSlider'), lrVal = document.getElementById('lrVal');
+  var out = document.getElementById('demoOut'), svg = document.getElementById('demoSvg');
+  var E = function (k) { return (k - 3) * (k - 3); };
+  var G = function (k) { return 2 * (k - 3); };
+
+  function draw() {
+    var lr = +lrEl.value / 100;
+    lrVal.textContent = lr.toFixed(2);
+
+    var k = 0.2, path = [k], diverged = false;
+    for (var i = 0; i < 12; i++) {
+      k = k - lr * G(k);
+      path.push(k);
+      if (!isFinite(k) || Math.abs(k) > 1e4) { diverged = true; break; }
+    }
+
+    var X = function (v) { return 20 + (v + 2) / 9.5 * 300; };
+    var Y = function (e) { return 172 - Math.min(e, 26) / 26 * 145; };
+
+    var h = '', d = '';
+    for (var t = -2; t <= 7.5; t += 0.1) d += (d ? 'L' : 'M') + X(t).toFixed(1) + ' ' + Y(E(t)).toFixed(1);
+    h += '<path d="' + d + '" fill="none" stroke="var(--line)" stroke-width="2"/>';
+    h += '<line x1="' + X(3) + '" y1="24" x2="' + X(3) + '" y2="176" stroke="var(--line)" stroke-dasharray="3 3"/>';
+    path.forEach(function (v, i) {
+      if (!isFinite(v) || Math.abs(v) > 12) return;
+      h += '<circle cx="' + X(v) + '" cy="' + Y(E(v)) + '" r="' + (i === 0 ? 4 : 2.7) +
+           '" fill="var(--accent)" opacity="' + Math.max(0.25, 1 - i / 14).toFixed(2) + '"/>';
+    });
+    svg.innerHTML = h;
+
+    var last = path[path.length - 1];
+    var bad = diverged || E(last) > E(path[0]);
+    out.innerHTML = '学习率 <b>' + lr.toFixed(2) + '</b> · 12 步后 k = <b>' +
+      (isFinite(last) ? last.toFixed(2) : '∞') + '</b> · 误差 <b>' +
+      (isFinite(last) ? E(last).toFixed(3) : '∞') + '</b>' + (bad ? ' · 发散了' : '');
+    window.kvState = function () { return { lr: lr, err: E(last), bad: bad }; };
+  }
+
+  lrEl.addEventListener('input', draw);
+  document.getElementById('resetBtn').addEventListener('click', function () { lrEl.value = 20; draw(); });
+  draw();
+
+})();
+</script>
+
+<script>
+/* ─── 自测：答完才展开 ─── */
+(function () {
+  document.querySelectorAll('.quiz').forEach(function (quiz) {
+    quiz.querySelectorAll('.opt').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var qi = btn.dataset.q, oi = btn.dataset.o;
+        quiz.querySelectorAll('.opt').forEach(function (b) {
+          b.classList.remove('right', 'wrong');
+        });
+        var isRight = btn.dataset.correct === 'true';
+        btn.classList.add(isRight ? 'right' : 'wrong');
+        // 答错时把正确项也标出来 —— 否则用户只知道错了，不知道该选哪个
+        if (!isRight) {
+          var correct = quiz.querySelector('.opt[data-correct="true"]');
+          if (correct) correct.classList.add('right');
+        }
+        quiz.querySelectorAll('.why').forEach(function (w) { w.style.display = 'none'; w.hidden = true; });
+        var w = quiz.querySelector('[data-why="' + qi + '-' + oi + '"]');
+        if (w) { w.style.display = 'block'; w.hidden = false; }
+        quiz.dataset.answered = '1';
+      });
+    });
+  });
+})();
+</script>
+
+<script>
+/* ─── 动手区标记 ─── */
+(function () {
+  var b = document.getElementById('ranBtn');
+  if (!b) return;
+  b.addEventListener('click', function () {
+    b.dataset.handsOn = '1';
+    b.dataset.tried = '1';
+    b.textContent = '记住了，我跑过了 ✓';
+    b.style.borderColor = 'var(--ok)';
+    b.style.color = 'var(--ok)';
+  });
+})();
+</script>
+
+<script>
+/* ─── KVReplaySteps ▸ day-02.html ▸ v1 ─── */
+(function () {
+  var root = document.getElementById('kvReplay');
+  if (!root || !window.KVReplay) return;
+  KVReplay.create({
+    root: root,
+    label: '看一遍演示',
+    done: '演示结束。现在你自己拖一下，数字一样是现算的。',
+    steps: [
+      async (r) => { r.say('学习率 0.2：一步步稳稳滚到谷底。');
+        await r.slide('#lrSlider', 20, 700); await r.wait(1500); },
+      async (r) => { r.say('调大一些，收敛更快。');
+        await r.slide('#lrSlider', 50, 700); await r.wait(1200); },
+      async (r) => { r.say('再大就开始在谷底两侧弹跳。');
+        await r.slide('#lrSlider', 95, 700); await r.wait(1200); },
+      async (r) => { r.say('过了临界值误差反而涨 —— 明天专门算这个阈值。'); }
+    ]
+  });
+})();
+</script>
+
+<script>
+/* ─── 进度上报：三条都满足才算完成 ─── */
+(function () {
+  var CONFIG = { routeId: 'fit-5', dayId: 'day-02', nextFile: 'day-03.html' };
+  var box = document.getElementById('dayDone');
+  if (!box || !window.KVProgress) return;
+
+  var btn = document.getElementById('dayDoneBtn');
+  var hint = document.getElementById('dayDoneHint');
+
+  function quizzesAnswered() {
+    var qs = document.querySelectorAll('.quiz');
+    if (!qs.length) return true;
+    return [].every.call(qs, function (q) { return q.dataset.answered === '1'; });
+  }
+  function handsOnTried() {
+    var e = document.querySelector('[data-hands-on]');
+    return e ? e.dataset.tried === '1' : true;
+  }
+  function sync() {
+    var done = !!window.KVProgress.load(CONFIG.routeId).done[CONFIG.dayId];
+    btn.dataset.done = done ? '1' : '0';
+    btn.textContent = done ? '已完成 · 点一下撤销' : '今天学完了 ✓';
+    hint.textContent = done ? '进度已记录。回汇总页看下一步。' : '';
+  }
+  btn.addEventListener('click', function () {
+    var done = !!window.KVProgress.load(CONFIG.routeId).done[CONFIG.dayId];
+    if (done) { window.KVProgress.undoSelf(CONFIG.routeId, CONFIG.dayId); sync(); return; }
+    var missing = [];
+    if (!quizzesAnswered()) missing.push('自测还有没作答的');
+    if (!handsOnTried()) missing.push('动手还没点「我跑过了」');
+    if (missing.length) { hint.textContent = '还差：' + missing.join('；') + '。'; return; }
+    window.KVProgress.markDone(CONFIG.routeId, CONFIG.dayId);
+    sync();
+  });
+  window.KVProgress.markVisited(CONFIG.routeId, CONFIG.dayId);
+  sync();
+})();
+</script>
+</body>
+</html>
