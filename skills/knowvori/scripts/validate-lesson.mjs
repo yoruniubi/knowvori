@@ -284,6 +284,44 @@ function check(html, file) {
     add('pass', '路线衔接', '非路线课程，不适用');
   }
 
+  // ────────── 22. 术语讲解（C9 小白默认）──────────
+  // 最常的毛病不是写错，而是读者卡在第一个没解释的名词上走不下去。
+  // 这里只抓两种能机械判定的硬伤，不去猜「讲得够不够好」——
+  // 判不准的宁可漏报，假警报会训练人忽略真警报。
+  const textOnly = stripped
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ');
+
+  // (a) 假解释：用术语解释术语。
+  //    只认「术语」：定义 这种明确格式。早先放宽到「X是Y」就满屏误报——
+  //    「真实神经网络是非凸的」只是陈述，不是定义。宁可漏报也不误报。
+  const jargonLoops = [];
+  const harder = ['导数', '偏导数', '梯度', '向量', '矩阵', '张量', '积分', '概率分布', '特征值', '二次型', '泛函', '拓扑'];
+  const defRe = /「([^」]{2,10})」\s*(?:是|指|就是|：|:)\s*([^。\n]{0,60})/g;
+  let dm;
+  while ((dm = defRe.exec(textOnly))) {
+    const term = dm[1];
+    const def = dm[2];
+    if (!def || def.includes(term)) continue;
+    const used = harder.filter((h) => def.includes(h) && !term.includes(h));
+    if (used.length) jargonLoops.push(`${term}→${used[0]}`);
+  }
+  if (jargonLoops.length) {
+    add('warn', '术语讲解', `${jargonLoops.length} 处疑似用术语解释术语（${[...new Set(jargonLoops)].slice(0, 3).join('、')}）；小白读到会断`);
+  } else {
+    add('pass', '术语讲解', '未见「用术语解释术语」');
+  }
+
+  // (b) 糊弄词：出现就是「我也没想清楚」
+  const hedgeWords = ['众所周知', '不难发现', '显而易见', '简单来说', '顾名思义', '稍微想一下'];
+  const hedges = hedgeWords.filter((w) => textOnly.includes(w));
+  if (hedges.length) {
+    add('warn', '糊弄词', `出现 ${hedges.join('、')}；这些词的真实含义是「没想清楚」`);
+  } else {
+    add('pass', '糊弄词', '未出现「众所周知 / 显然 / 简单来说」之类糊弄词');
+  }
+
   return { file, results };
 }
 
