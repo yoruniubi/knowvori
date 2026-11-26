@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="README.md"><b>简体中文</b></a> · <a href="README.en.md">English</a>
+</p>
+
 # knowvori · 交互式学习 Skill
 
 <p align="center">
